@@ -79,6 +79,7 @@
     h1 { margin-bottom: 7px; font-size: clamp(28px, 3vw, 40px); letter-spacing: -0.035em; }
     h2 { letter-spacing: -0.02em; }
     .subtle { color: var(--muted); }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
     .private-label { color: #5d665f; font-size: 12px; }
     .private-label::before { content: "▣ "; color: var(--accent); }
 
@@ -136,15 +137,22 @@
     .publication-table .publication-row { cursor: pointer; }
     .publication-table .publication-row:hover { background: #f8fbf9; }
     .publication-table .publication-row.selected { background: var(--accent-soft); }
-    .project-row td { padding: 12px 15px; border-top: 1px solid #d6ddd8; background: #f1f4f1; }
+    .project-row td { padding: 10px 15px; border-top: 1px solid #d6ddd8; background: #f1f4f1; }
     .project-row:first-child td { border-top: 0; }
-    .project-heading { display: flex; align-items: center; gap: 14px; }
+    .project-heading { display: flex; align-items: center; gap: 10px; }
+    .project-toggle { min-width: 0; flex: 1; display: flex; align-items: center; gap: 8px; padding: 0; border: 0; color: inherit; background: transparent; text-align: left; }
+    .project-toggle:hover .project-name { text-decoration: underline; text-underline-offset: 3px; }
+    .project-chevron { width: 14px; color: var(--muted); font-size: 11px; transform: rotate(90deg); transition: transform 120ms ease; }
+    .project-row.collapsed .project-chevron { transform: rotate(0); }
     .project-copy { min-width: 0; flex: 1; }
     .project-name { margin-right: 7px; font-size: 14px; font-weight: 780; }
     .project-prefix { color: var(--muted); font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; }
-    .project-description { margin: 3px 0 0; color: #59635e; font-size: 12px; }
+    .project-description { display: block; margin: 3px 0 0; color: #59635e; font-size: 12px; }
     .project-description.empty { color: #89918d; font-style: italic; }
     .project-meta { color: var(--muted); font-size: 11px; white-space: nowrap; }
+    .project-edit-icon, .open-publication-icon { width: 31px; height: 31px; display: inline-grid; place-items: center; padding: 0; border: 1px solid #cbd2cd; border-radius: 8px; color: #45514b; background: #fff; font-size: 14px; }
+    .project-edit-icon:hover, .open-publication-icon:hover { color: var(--accent); border-color: #86928c; background: #f8fbf9; }
+    .open-cell { width: 48px; text-align: center; }
     .publication-name { display: block; margin-bottom: 2px; padding-left: 14px; font-weight: 740; }
     .publication-url { color: var(--muted); font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; }
     .publication-name + .publication-url { padding-left: 14px; }
@@ -158,7 +166,6 @@
     .detail-block dt { margin-bottom: 5px; color: var(--muted); font-size: 11px; text-transform: uppercase; }
     .detail-block dd { margin: 0; font-size: 13px; line-height: 1.5; }
     .detail-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .detail-actions .preview-action { grid-column: 1 / -1; }
 
     /* Variant B: preview-first three-pane workspace. */
     .b-workspace { height: calc(100vh - 91px); min-height: 670px; display: grid; grid-template-columns: 255px minmax(380px, 1fr) 320px; background: #e9ece9; }
@@ -306,7 +313,8 @@
       .publication-table th:nth-child(2), .publication-table td:nth-child(2), .publication-table th:nth-child(3), .publication-table td:nth-child(3), .publication-table th:nth-child(4), .publication-table td:nth-child(4) { display: none; }
       .project-row td { display: table-cell !important; }
       .project-heading { align-items: start; flex-wrap: wrap; }
-      .project-meta { order: 3; width: 100%; padding-left: 0; }
+      .project-toggle { align-items: start; }
+      .project-meta { order: 3; width: 100%; padding-left: 22px; }
       .b-workspace { height: auto; min-height: calc(100vh - 83px); grid-template-columns: 1fr; }
       .b-sidebar { width: 100%; min-width: 0; border-right: 0; }
       .b-list { width: 100%; min-width: 0; display: flex; gap: 4px; overflow-x: auto; }
@@ -381,6 +389,7 @@
       projects: structuredClone(initialProjects),
       publications: structuredClone(initialPublications),
       selectedId: "pub-001",
+      collapsedProjectIds: [],
       query: "",
       inlineAction: null,
       pendingAction: null,
@@ -488,24 +497,28 @@
       const selected = currentPublication();
       const selectedProject = currentProject();
       const tables = groups.map(({ project, publications: projectPublications }) => {
+        const collapsed = state.collapsedProjectIds.includes(project.id) && !state.query.trim();
         const rows = projectPublications.map(publication => `
           <tr class="publication-row ${publication.id === state.selectedId ? "selected" : ""}" data-select="${publication.id}" tabindex="0">
             <td><span class="publication-name">${escapeHTML(publication.name)}</span><span class="publication-url">/${escapeHTML(project.prefix)}/${escapeHTML(publication.path)}/${publication.entry === "index.html" ? "" : escapeHTML(publication.entry)}</span></td>
             <td class="description-cell">${publication.description ? escapeHTML(publication.description) : `<span class="subtle">No publication description</span>`}</td>
             <td>${escapeHTML(publication.updated)}</td>
             <td>${formatBytes(publication.bytes)}</td>
-            <td><span class="type-pill">${publication.entry === "index.html" ? "Clean URL" : "Named file"}</span></td>
+            <td class="open-cell"><button class="open-publication-icon" data-action="preview" data-id="${publication.id}" type="button" aria-label="Open ${escapeHTML(publication.name)}" title="Open public page">↗</button></td>
           </tr>`).join("");
         const description = project.description
-          ? `<p class="project-description">${escapeHTML(project.description)}</p>`
-          : `<p class="project-description empty">No project description</p>`;
+          ? `<span class="project-description">${escapeHTML(project.description)}</span>`
+          : `<span class="project-description empty">No project description</span>`;
         return `<tbody>
-          <tr class="project-row"><td colspan="5"><div class="project-heading">
-            <div class="project-copy"><span class="project-name">${escapeHTML(project.name)}</span><span class="project-prefix">/${escapeHTML(project.prefix)}/</span>${description}</div>
-            <span class="project-meta">${projectPublications.length} publication${projectPublications.length === 1 ? "" : "s"} · ${formatBytes(projectStorage(project))}</span>
-            <button class="button small" data-project-action="description" data-project-id="${project.id}">${project.description ? "Edit project description" : "Add project description"}</button>
+          <tr class="project-row ${collapsed ? "collapsed" : ""}"><td colspan="5"><div class="project-heading">
+            <button class="project-toggle" data-project-toggle="${project.id}" type="button" aria-expanded="${!collapsed}">
+              <span class="project-chevron" aria-hidden="true">›</span>
+              <span class="project-copy"><span class="project-name">${escapeHTML(project.name)}</span><span class="project-prefix">/${escapeHTML(project.prefix)}/</span>${description}</span>
+            </button>
+            <span class="project-meta">${publicationsFor(project).length} publication${publicationsFor(project).length === 1 ? "" : "s"} · ${formatBytes(projectStorage(project))}</span>
+            <button class="project-edit-icon" data-project-action="description" data-project-id="${project.id}" type="button" aria-label="${project.description ? "Edit" : "Add"} description for ${escapeHTML(project.name)}" title="${project.description ? "Edit" : "Add"} project description">✎</button>
           </div></td></tr>
-          ${rows || `<tr><td colspan="5" class="empty-state">This project has no matching publications.</td></tr>`}
+          ${collapsed ? "" : rows || `<tr><td colspan="5" class="empty-state">This project has no matching publications.</td></tr>`}
         </tbody>`;
       }).join("");
 
@@ -522,7 +535,7 @@
           <div class="a-workspace">
             <div>
               ${groups.length ? `<table class="publication-table">
-                <thead><tr><th>Publication</th><th>Private description</th><th>Updated</th><th>Size</th><th>Entry</th></tr></thead>
+                <thead><tr><th>Publication</th><th>Private description</th><th>Updated</th><th>Size</th><th><span class="sr-only">Open public page</span></th></tr></thead>
                 ${tables}
               </table>` : `<div class="empty-state">No projects or publications match this search.</div>`}
             </div>
@@ -541,7 +554,6 @@
                   <dt>Stored object</dt><dd><code>${escapeHTML(objectKey(selected))}</code><br>${formatBytes(selected.bytes)} · updated ${escapeHTML(selected.updated)}</dd>
                 </dl>
                 <div class="detail-actions">
-                  <button class="button primary preview-action" data-action="preview" data-id="${selected.id}">Open public preview ↗</button>
                   <button class="button" data-action="description" data-id="${selected.id}">Edit publication</button>
                   <button class="button" data-action="move" data-id="${selected.id}">Move</button>
                   <button class="button danger" data-action="delete" data-id="${selected.id}">Delete</button>
@@ -665,6 +677,7 @@
         projects: state.projects.map(project => ({ id: project.id, prefix: project.prefix, privateDescription: project.description })),
         publications: state.publications.map(publication => ({ id: publication.id, projectId: publication.projectId, path: publication.path, entry: publication.entry, bytes: publication.bytes, privateDescription: publication.description })),
         selectedId: state.selectedId,
+        collapsedProjectIds: state.collapsedProjectIds,
         query: state.query,
         pendingAction: state.pendingAction,
         storage: { usedBytes: storageUsed(), quotaBytes },
@@ -686,11 +699,29 @@
       });
 
       root.querySelectorAll("[data-action]").forEach(element => {
-        element.addEventListener("click", () => openAction(element.dataset.action, element.dataset.id));
+        element.addEventListener("click", event => {
+          event.stopPropagation();
+          openAction(element.dataset.action, element.dataset.id);
+        });
+      });
+
+      root.querySelectorAll("[data-project-toggle]").forEach(element => {
+        element.addEventListener("click", () => {
+          const projectId = element.dataset.projectToggle;
+          state.collapsedProjectIds = state.collapsedProjectIds.includes(projectId)
+            ? state.collapsedProjectIds.filter(id => id !== projectId)
+            : [...state.collapsedProjectIds, projectId];
+          const project = state.projects.find(item => item.id === projectId);
+          state.lastEvent = `${state.collapsedProjectIds.includes(projectId) ? "Collapsed" : "Expanded"} ${project.name}`;
+          render();
+        });
       });
 
       root.querySelectorAll("[data-project-action]").forEach(element => {
-        element.addEventListener("click", () => openProjectDescription(element.dataset.projectId));
+        element.addEventListener("click", event => {
+          event.stopPropagation();
+          openProjectDescription(element.dataset.projectId);
+        });
       });
 
       root.querySelectorAll("[data-inline]").forEach(element => {
