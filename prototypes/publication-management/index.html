@@ -30,7 +30,7 @@
 
     * { box-sizing: border-box; }
     body { margin: 0; min-height: 100vh; color: var(--ink); background: var(--paper); }
-    button, input, textarea { font: inherit; }
+    button, input, textarea, select { font: inherit; }
     button, a { -webkit-tap-highlight-color: transparent; }
     button { cursor: pointer; }
     a { color: inherit; }
@@ -133,15 +133,26 @@
     .publication-table { width: 100%; border-collapse: collapse; }
     .publication-table th { padding: 12px 15px; color: var(--muted); background: #f7f8f6; font-size: 11px; letter-spacing: 0.06em; text-align: left; text-transform: uppercase; }
     .publication-table td { padding: 13px 15px; border-top: 1px solid #edf0ed; font-size: 13px; vertical-align: middle; }
-    .publication-table tbody tr { cursor: pointer; }
-    .publication-table tbody tr:hover { background: #f8fbf9; }
-    .publication-table tbody tr.selected { background: var(--accent-soft); }
-    .publication-name { display: block; margin-bottom: 2px; font-weight: 740; }
+    .publication-table .publication-row { cursor: pointer; }
+    .publication-table .publication-row:hover { background: #f8fbf9; }
+    .publication-table .publication-row.selected { background: var(--accent-soft); }
+    .project-row td { padding: 12px 15px; border-top: 1px solid #d6ddd8; background: #f1f4f1; }
+    .project-row:first-child td { border-top: 0; }
+    .project-heading { display: flex; align-items: center; gap: 14px; }
+    .project-copy { min-width: 0; flex: 1; }
+    .project-name { margin-right: 7px; font-size: 14px; font-weight: 780; }
+    .project-prefix { color: var(--muted); font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; }
+    .project-description { margin: 3px 0 0; color: #59635e; font-size: 12px; }
+    .project-description.empty { color: #89918d; font-style: italic; }
+    .project-meta { color: var(--muted); font-size: 11px; white-space: nowrap; }
+    .publication-name { display: block; margin-bottom: 2px; padding-left: 14px; font-weight: 740; }
     .publication-url { color: var(--muted); font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; }
+    .publication-name + .publication-url { padding-left: 14px; }
     .description-cell { max-width: 230px; color: #4e5853; }
     .type-pill { display: inline-flex; padding: 4px 7px; border-radius: 999px; background: #eef1ee; color: #53605a; font-size: 11px; white-space: nowrap; }
     .a-detail { padding: 22px; border-left: 1px solid var(--line); background: #fcfdfb; }
     .a-detail h2 { margin-bottom: 4px; font-size: 20px; }
+    .detail-breadcrumb { margin-bottom: 9px; color: var(--accent); font-size: 11px; font-weight: 720; letter-spacing: 0.05em; text-transform: uppercase; }
     .detail-url { margin-bottom: 21px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
     .detail-block { margin: 0 0 20px; padding: 0 0 18px; border-bottom: 1px solid var(--line); }
     .detail-block dt { margin-bottom: 5px; color: var(--muted); font-size: 11px; text-transform: uppercase; }
@@ -156,7 +167,10 @@
     .b-sidebar-head { padding: 21px 18px 12px; }
     .b-sidebar-head h1 { font-size: 21px; }
     .b-list { overflow: auto; padding: 4px 8px 16px; }
-    .b-list-item { width: 100%; display: block; padding: 11px 10px; border: 0; border-radius: 9px; background: transparent; text-align: left; }
+    .b-project-heading { display: flex; align-items: center; gap: 5px; padding: 13px 10px 5px; color: var(--muted); font-size: 10px; font-weight: 760; letter-spacing: 0.06em; text-transform: uppercase; }
+    .b-project-heading span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .b-project-heading button { padding: 2px 4px; border: 0; color: var(--accent); background: transparent; font-size: 10px; text-transform: none; }
+    .b-list-item { width: 100%; display: block; padding: 11px 10px 11px 18px; border: 0; border-radius: 9px; background: transparent; text-align: left; }
     .b-list-item:hover { background: #f4f6f3; }
     .b-list-item.selected { color: #0d4f38; background: var(--accent-soft); }
     .b-list-item strong { display: block; margin-bottom: 3px; font-size: 13px; }
@@ -191,6 +205,12 @@
     .command-input { height: 54px; padding: 0 17px; border: 1px solid #aeb9b2; border-radius: 12px; font-size: 16px; box-shadow: 0 9px 25px rgba(29, 42, 35, 0.06); }
     .c-label-row { display: flex; justify-content: space-between; margin: 31px 0 10px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; }
     .ledger { border-top: 1px solid #cdd4cf; }
+    .ledger-project { margin-top: 26px; }
+    .ledger-project:first-child { margin-top: 0; }
+    .ledger-project-head { display: flex; align-items: start; gap: 18px; padding: 13px 5px; border-bottom: 1px solid #aeb9b2; background: #f1f4f1; }
+    .ledger-project-head > div { min-width: 0; flex: 1; }
+    .ledger-project-head h2 { margin: 0 0 3px; font-size: 15px; }
+    .ledger-project-head p { margin: 0; color: var(--muted); font-size: 12px; }
     .ledger-item { border-bottom: 1px solid #cdd4cf; }
     .ledger-main { display: grid; grid-template-columns: minmax(180px, 1.2fr) minmax(150px, 1fr) auto; align-items: center; gap: 20px; padding: 17px 5px; }
     .ledger-main h2 { margin: 0 0 3px; font-size: 16px; }
@@ -284,10 +304,14 @@
       .a-heading, .c-top { display: block; }
       .a-storage, .c-storage { width: 100%; margin-top: 20px; }
       .publication-table th:nth-child(2), .publication-table td:nth-child(2), .publication-table th:nth-child(3), .publication-table td:nth-child(3), .publication-table th:nth-child(4), .publication-table td:nth-child(4) { display: none; }
+      .project-row td { display: table-cell !important; }
+      .project-heading { align-items: start; flex-wrap: wrap; }
+      .project-meta { order: 3; width: 100%; padding-left: 0; }
       .b-workspace { height: auto; min-height: calc(100vh - 83px); grid-template-columns: 1fr; }
       .b-sidebar { width: 100%; min-width: 0; border-right: 0; }
       .b-list { width: 100%; min-width: 0; display: flex; gap: 4px; overflow-x: auto; }
-      .b-list-item { min-width: 170px; flex: 0 0 170px; }
+      .b-project-group { min-width: 200px; flex: 0 0 200px; }
+      .b-list-item { min-width: 0; }
       .b-preview { min-width: 0; min-height: 490px; padding: 12px; }
       .b-inspector { min-width: 0; grid-column: auto; }
       .b-inspector code { overflow-wrap: anywhere; }
@@ -331,22 +355,30 @@
       { key: "C", name: "Action ledger" }
     ];
 
+    const initialProjects = [
+      { id: "project-001", name: "Page Hub", prefix: "page-hub", description: "Research and prototypes for the Page Hub manager." },
+      { id: "project-002", name: "Platform notes", prefix: "platform-notes", description: "Notes about shared infrastructure and service operation." },
+      { id: "project-003", name: "Workshop kit", prefix: "workshop-kit", description: "Pages used during workshops and product reviews." },
+      { id: "project-004", name: "Briefs", prefix: "briefs", description: "" }
+    ];
+
     const initialPublications = [
-      { id: "pub-001", name: "Launch notes", prefix: "launch-notes", entry: "index.html", bytes: 42586, updated: "Sep 14, 2026", description: "Release notes for the latest internal tool rollout." },
-      { id: "pub-002", name: "API review", prefix: "api-review", entry: "index.html", bytes: 14361, updated: "Sep 14, 2026", description: "Review copy for the publishing API proposal." },
-      { id: "pub-003", name: "Workshop board", prefix: "workshop-board", entry: "index.html", bytes: 18000, updated: "Sep 13, 2026", description: "Facilitation board used during the September workshop." },
-      { id: "pub-004", name: "Decision log", prefix: "decision-log", entry: "index.html", bytes: 20000, updated: "Sep 12, 2026", description: "Rendered decision notes for quick sharing." },
-      { id: "pub-005", name: "Layout study", prefix: "layout-study", entry: "index.html", bytes: 16000, updated: "Sep 11, 2026", description: "Early layout directions. Keep for reference." },
-      { id: "pub-006", name: "Reader prototype", prefix: "reader-prototype", entry: "index.html", bytes: 26698, updated: "Sep 10, 2026", description: "Prototype for the document reader flow." },
-      { id: "pub-007", name: "Quarterly brief", prefix: "quarterly-brief", entry: "QuarterlyBrief.html", bytes: 56586, updated: "Sep 10, 2026", description: "Named-file publication with case-sensitive entry point." },
-      { id: "pub-008", name: "Migration report", prefix: "migration-report", entry: "migration-report.html", bytes: 48780, updated: "Sep 9, 2026", description: "Findings from the storage migration rehearsal." },
-      { id: "pub-009", name: "Storage findings", prefix: "storage-findings", entry: "storage.html", bytes: 27549, updated: "Sep 9, 2026", description: "Notes on quota, object layout, and routing behavior." },
-      { id: "pub-010", name: "Auth comparison", prefix: "auth-comparison", entry: "notes.html", bytes: 41177, updated: "Sep 8, 2026", description: "Private notes comparing manager sign-in choices." }
+      { id: "pub-001", projectId: "project-001", name: "Launch notes", path: "releases/launch-notes", entry: "index.html", bytes: 42586, updated: "Sep 14, 2026", description: "Release notes for the latest internal tool rollout." },
+      { id: "pub-002", projectId: "project-001", name: "API review", path: "research", entry: "api-review.html", bytes: 14361, updated: "Sep 14, 2026", description: "Review copy for the publishing API proposal." },
+      { id: "pub-003", projectId: "project-003", name: "Workshop board", path: "september", entry: "index.html", bytes: 18000, updated: "Sep 13, 2026", description: "Facilitation board used during the September workshop." },
+      { id: "pub-004", projectId: "project-002", name: "Decision log", path: "decisions", entry: "index.html", bytes: 20000, updated: "Sep 12, 2026", description: "Rendered decision notes for quick sharing." },
+      { id: "pub-005", projectId: "project-001", name: "Layout study", path: "prototypes/layout-study", entry: "index.html", bytes: 16000, updated: "Sep 11, 2026", description: "Early layout directions. Keep for reference." },
+      { id: "pub-006", projectId: "project-001", name: "Reader prototype", path: "prototypes/reader", entry: "index.html", bytes: 26698, updated: "Sep 10, 2026", description: "Prototype for the document reader flow." },
+      { id: "pub-007", projectId: "project-004", name: "Quarterly brief", path: "quarterly", entry: "QuarterlyBrief.html", bytes: 56586, updated: "Sep 10, 2026", description: "Named-file publication with case-sensitive entry point." },
+      { id: "pub-008", projectId: "project-002", name: "Migration report", path: "migration", entry: "migration-report.html", bytes: 48780, updated: "Sep 9, 2026", description: "Findings from the storage migration rehearsal." },
+      { id: "pub-009", projectId: "project-002", name: "Storage findings", path: "storage", entry: "storage.html", bytes: 27549, updated: "Sep 9, 2026", description: "Notes on quota, object layout, and routing behavior." },
+      { id: "pub-010", projectId: "project-002", name: "Auth comparison", path: "auth", entry: "notes.html", bytes: 41177, updated: "Sep 8, 2026", description: "Private notes comparing manager sign-in choices." }
     ];
 
     const requestedVariant = new URLSearchParams(location.search).get("variant")?.toUpperCase();
     const state = {
       variant: variants.some(item => item.key === requestedVariant) ? requestedVariant : "A",
+      projects: structuredClone(initialProjects),
       publications: structuredClone(initialPublications),
       selectedId: "pub-001",
       query: "",
@@ -381,17 +413,60 @@
       return state.publications.reduce((sum, publication) => sum + publication.bytes, 0);
     }
 
+    function projectFor(publication) {
+      return state.projects.find(project => project.id === publication.projectId);
+    }
+
+    function currentProject() {
+      const publication = currentPublication();
+      return publication ? projectFor(publication) : null;
+    }
+
+    function publicationRoot(project, path) {
+      return ["https://share.bdgn.me", project.prefix, path].filter(Boolean).join("/");
+    }
+
+    function publicPathFor(project, path, entry) {
+      const rootPath = publicationRoot(project, path);
+      return entry === "index.html" ? `${rootPath}/` : `${rootPath}/${entry}`;
+    }
+
     function publicPath(publication) {
-      const suffix = publication.entry === "index.html" ? "" : publication.entry;
-      return `https://share.bdgn.me/${publication.prefix}/${suffix}`;
+      return publicPathFor(projectFor(publication), publication.path, publication.entry);
+    }
+
+    function objectKey(publication) {
+      return [projectFor(publication).prefix, publication.path, publication.entry].filter(Boolean).join("/");
+    }
+
+    function confirmationPath(publication) {
+      return [projectFor(publication).prefix, publication.path || publication.entry].filter(Boolean).join("/");
+    }
+
+    function publicationsFor(project) {
+      return state.publications.filter(publication => publication.projectId === project.id);
+    }
+
+    function projectStorage(project) {
+      return publicationsFor(project).reduce((sum, publication) => sum + publication.bytes, 0);
+    }
+
+    function visibleProjectGroups() {
+      const query = state.query.trim().toLowerCase();
+      return state.projects.map(project => {
+        const publications = publicationsFor(project);
+        if (!query) return { project, publications };
+        const projectMatches = [project.name, project.prefix, project.description].some(value => value.toLowerCase().includes(query));
+        const matchingPublications = publications.filter(publication =>
+          [publication.name, publication.path, publication.description, publication.entry].some(value => value.toLowerCase().includes(query))
+        );
+        if (!projectMatches && !matchingPublications.length) return null;
+        return { project, publications: projectMatches ? publications : matchingPublications };
+      }).filter(Boolean);
     }
 
     function visiblePublications() {
-      const query = state.query.trim().toLowerCase();
-      if (!query) return state.publications;
-      return state.publications.filter(publication =>
-        [publication.name, publication.prefix, publication.description, publication.entry].some(value => value.toLowerCase().includes(query))
-      );
+      return visibleProjectGroups().flatMap(group => group.publications);
     }
 
     function currentPublication() {
@@ -408,47 +483,66 @@
     }
 
     function renderVariantA() {
-      const publications = visiblePublications();
+      const groups = visibleProjectGroups();
+      const publications = groups.flatMap(group => group.publications);
       const selected = currentPublication();
-      const rows = publications.map(publication => `
-        <tr class="${publication.id === state.selectedId ? "selected" : ""}" data-select="${publication.id}" tabindex="0">
-          <td><span class="publication-name">${escapeHTML(publication.name)}</span><span class="publication-url">/${escapeHTML(publication.prefix)}/</span></td>
-          <td class="description-cell">${escapeHTML(publication.description)}</td>
-          <td>${escapeHTML(publication.updated)}</td>
-          <td>${formatBytes(publication.bytes)}</td>
-          <td><span class="type-pill">${publication.entry === "index.html" ? "Clean URL" : "Named file"}</span></td>
-        </tr>`).join("");
+      const selectedProject = currentProject();
+      const tables = groups.map(({ project, publications: projectPublications }) => {
+        const rows = projectPublications.map(publication => `
+          <tr class="publication-row ${publication.id === state.selectedId ? "selected" : ""}" data-select="${publication.id}" tabindex="0">
+            <td><span class="publication-name">${escapeHTML(publication.name)}</span><span class="publication-url">/${escapeHTML(project.prefix)}/${escapeHTML(publication.path)}/${publication.entry === "index.html" ? "" : escapeHTML(publication.entry)}</span></td>
+            <td class="description-cell">${publication.description ? escapeHTML(publication.description) : `<span class="subtle">No publication description</span>`}</td>
+            <td>${escapeHTML(publication.updated)}</td>
+            <td>${formatBytes(publication.bytes)}</td>
+            <td><span class="type-pill">${publication.entry === "index.html" ? "Clean URL" : "Named file"}</span></td>
+          </tr>`).join("");
+        const description = project.description
+          ? `<p class="project-description">${escapeHTML(project.description)}</p>`
+          : `<p class="project-description empty">No project description</p>`;
+        return `<tbody>
+          <tr class="project-row"><td colspan="5"><div class="project-heading">
+            <div class="project-copy"><span class="project-name">${escapeHTML(project.name)}</span><span class="project-prefix">/${escapeHTML(project.prefix)}/</span>${description}</div>
+            <span class="project-meta">${projectPublications.length} publication${projectPublications.length === 1 ? "" : "s"} · ${formatBytes(projectStorage(project))}</span>
+            <button class="button small" data-project-action="description" data-project-id="${project.id}">${project.description ? "Edit project description" : "Add project description"}</button>
+          </div></td></tr>
+          ${rows || `<tr><td colspan="5" class="empty-state">This project has no matching publications.</td></tr>`}
+        </tbody>`;
+      }).join("");
 
       root.innerHTML = `
         <section class="a-shell">
           <div class="a-heading">
-            <div><p class="eyebrow">Publication inventory</p><h1>Your shared pages</h1><p class="subtle">Public pages and their private management notes.</p></div>
+            <div><p class="eyebrow">Project inventory</p><h1>Your shared pages</h1><p class="subtle">Projects group publications. Both can have private descriptions.</p></div>
             ${storageMarkup("a-storage")}
           </div>
           <div class="a-toolbar">
-            <div class="search-wrap"><input class="input" data-search type="search" value="${escapeHTML(state.query)}" placeholder="Search publications" aria-label="Search publications"></div>
-            <span class="count-label">${publications.length} of ${state.publications.length}</span>
+            <div class="search-wrap"><input class="input" data-search type="search" value="${escapeHTML(state.query)}" placeholder="Search projects and publications" aria-label="Search projects and publications"></div>
+            <span class="count-label">${groups.length} project${groups.length === 1 ? "" : "s"} · ${publications.length} publication${publications.length === 1 ? "" : "s"}</span>
           </div>
           <div class="a-workspace">
             <div>
-              ${publications.length ? `<table class="publication-table">
+              ${groups.length ? `<table class="publication-table">
                 <thead><tr><th>Publication</th><th>Private description</th><th>Updated</th><th>Size</th><th>Entry</th></tr></thead>
-                <tbody>${rows}</tbody>
-              </table>` : `<div class="empty-state">No publications match this search.</div>`}
+                ${tables}
+              </table>` : `<div class="empty-state">No projects or publications match this search.</div>`}
             </div>
             <aside class="a-detail">
-              ${selected ? `
+              ${selected && selectedProject ? `
+                <p class="detail-breadcrumb">${escapeHTML(selectedProject.name)} project</p>
                 <h2>${escapeHTML(selected.name)}</h2>
                 <p class="detail-url">${escapeHTML(publicPath(selected))}</p>
                 <dl class="detail-block">
-                  <dt>Private description</dt><dd>${escapeHTML(selected.description)}</dd>
+                  <dt>Publication description · private</dt><dd>${selected.description ? escapeHTML(selected.description) : `<span class="subtle">No publication description</span>`}</dd>
                 </dl>
                 <dl class="detail-block">
-                  <dt>Stored object</dt><dd><code>${escapeHTML(selected.prefix)}/${escapeHTML(selected.entry)}</code><br>${formatBytes(selected.bytes)} · updated ${escapeHTML(selected.updated)}</dd>
+                  <dt>Project description · private</dt><dd>${selectedProject.description ? escapeHTML(selectedProject.description) : `<span class="subtle">No project description</span>`}</dd>
+                </dl>
+                <dl class="detail-block">
+                  <dt>Stored object</dt><dd><code>${escapeHTML(objectKey(selected))}</code><br>${formatBytes(selected.bytes)} · updated ${escapeHTML(selected.updated)}</dd>
                 </dl>
                 <div class="detail-actions">
-                  <button class="button primary preview-action" data-action="preview" data-id="${selected.id}">Preview publication</button>
-                  <button class="button" data-action="description" data-id="${selected.id}">Edit notes</button>
+                  <button class="button primary preview-action" data-action="preview" data-id="${selected.id}">Open public preview ↗</button>
+                  <button class="button" data-action="description" data-id="${selected.id}">Edit publication</button>
                   <button class="button" data-action="move" data-id="${selected.id}">Move</button>
                   <button class="button danger" data-action="delete" data-id="${selected.id}">Delete</button>
                 </div>` : `<p class="subtle">No publications remain.</p>`}
@@ -458,32 +552,39 @@
     }
 
     function renderVariantB() {
-      const publications = visiblePublications();
+      const groups = visibleProjectGroups();
       const selected = currentPublication();
-      const list = publications.map(publication => `
-        <button class="b-list-item ${publication.id === state.selectedId ? "selected" : ""}" data-select="${publication.id}" type="button">
-          <strong>${escapeHTML(publication.name)}</strong><span>/${escapeHTML(publication.prefix)}/${publication.entry === "index.html" ? "" : escapeHTML(publication.entry)}</span>
-        </button>`).join("");
+      const selectedProject = currentProject();
+      const list = groups.map(({ project, publications }) => `
+        <div class="b-project-group">
+          <div class="b-project-heading"><span>${escapeHTML(project.name)} · /${escapeHTML(project.prefix)}/</span><button data-project-action="description" data-project-id="${project.id}" type="button">Edit</button></div>
+          ${publications.map(publication => `
+            <button class="b-list-item ${publication.id === state.selectedId ? "selected" : ""}" data-select="${publication.id}" type="button">
+              <strong>${escapeHTML(publication.name)}</strong><span>/${escapeHTML(project.prefix)}/${escapeHTML(publication.path)}/${publication.entry === "index.html" ? "" : escapeHTML(publication.entry)}</span>
+            </button>`).join("")}
+        </div>`).join("");
 
       root.innerHTML = `
         <section class="b-workspace">
           <aside class="b-sidebar">
-            <div class="b-sidebar-head"><p class="eyebrow">Preview desk</p><h1>Publications</h1><input class="input" data-search type="search" value="${escapeHTML(state.query)}" placeholder="Filter list" aria-label="Filter publications"></div>
+            <div class="b-sidebar-head"><p class="eyebrow">Preview desk</p><h1>Projects</h1><input class="input" data-search type="search" value="${escapeHTML(state.query)}" placeholder="Filter list" aria-label="Filter projects and publications"></div>
             <div class="b-list">${list || `<div class="empty-state">No matches.</div>`}</div>
             <div class="b-sidebar-foot">${storageMarkup("")}</div>
           </aside>
-          ${selected ? `
+          ${selected && selectedProject ? `
             <section class="b-preview" aria-label="Publication preview">
               <div class="browser-bar"><div class="browser-dots"><span></span><span></span><span></span></div><div class="browser-url">${escapeHTML(publicPath(selected))}</div><button class="button small" data-action="preview" data-id="${selected.id}">Open</button></div>
               <div class="mock-page">
-                <div class="mock-document"><div class="mock-kicker">Published page</div><h2>${escapeHTML(selected.name)}</h2><div class="mock-rule"></div><p class="mock-copy">This frame stands in for the live publication. The manager keeps its controls outside the public page, so the preview stays close to what a reader sees.</p></div>
+                <div class="mock-document"><div class="mock-kicker">${escapeHTML(selectedProject.name)} publication</div><h2>${escapeHTML(selected.name)}</h2><div class="mock-rule"></div><p class="mock-copy">This frame stands in for the live publication. The project groups related publications without changing their individual public URLs.</p></div>
               </div>
               <p class="preview-note">Representative preview. No remote page is loaded in this prototype.</p>
             </section>
             <aside class="b-inspector">
-              <p class="eyebrow">Selected publication</p><h2>${escapeHTML(selected.name)}</h2><p class="detail-url">/${escapeHTML(selected.prefix)}/${selected.entry === "index.html" ? "" : escapeHTML(selected.entry)}</p>
-              <div class="inspector-description"><span class="private-label">Private description</span><br><br>${escapeHTML(selected.description)}</div>
-              <button class="button" data-action="description" data-id="${selected.id}">Edit private description</button>
+              <p class="eyebrow">${escapeHTML(selectedProject.name)} · Selected publication</p><h2>${escapeHTML(selected.name)}</h2><p class="detail-url">${escapeHTML(publicPath(selected).replace("https://share.bdgn.me", ""))}</p>
+              <div class="inspector-description"><span class="private-label">Publication description</span><br><br>${selected.description ? escapeHTML(selected.description) : `<span class="subtle">No publication description</span>`}</div>
+              <button class="button" data-action="description" data-id="${selected.id}">Edit publication description</button>
+              <div class="inspector-description"><span class="private-label">Project description</span><br><br>${selectedProject.description ? escapeHTML(selectedProject.description) : `<span class="subtle">No project description</span>`}</div>
+              <button class="button" data-project-action="description" data-project-id="${selectedProject.id}">${selectedProject.description ? "Edit" : "Add"} project description</button>
               <div class="metadata-list">
                 <div class="metadata-row"><span>Entry point</span><code>${escapeHTML(selected.entry)}</code></div>
                 <div class="metadata-row"><span>Stored size</span><span>${formatBytes(selected.bytes)}</span></div>
@@ -512,31 +613,36 @@
     }
 
     function renderVariantC() {
-      const publications = visiblePublications();
-      const ledger = publications.map(publication => `
-        <article class="ledger-item">
-          <div class="ledger-main">
-            <div><h2>${escapeHTML(publication.name)}</h2><p>/${escapeHTML(publication.prefix)}/${publication.entry === "index.html" ? "" : escapeHTML(publication.entry)}</p></div>
-            <div class="ledger-description">${escapeHTML(publication.description)}</div>
-            <div class="ledger-actions">
-              <button class="ledger-action" data-inline="preview" data-id="${publication.id}">Preview</button>
-              <button class="ledger-action" data-inline="description" data-id="${publication.id}">Describe</button>
-              <button class="ledger-action" data-inline="move" data-id="${publication.id}">Move</button>
-              <button class="ledger-action delete" data-inline="delete" data-id="${publication.id}">Delete</button>
-            </div>
-          </div>
-          ${inlineWorkflow(publication)}
-        </article>`).join("");
+      const groups = visibleProjectGroups();
+      const publications = groups.flatMap(group => group.publications);
+      const ledger = groups.map(({ project, publications: projectPublications }) => `
+        <section class="ledger-project">
+          <div class="ledger-project-head"><div><h2>${escapeHTML(project.name)} <span class="project-prefix">/${escapeHTML(project.prefix)}/</span></h2><p>${project.description ? escapeHTML(project.description) : `<span class="project-description empty">No project description</span>`}</p></div><button class="button small" data-project-action="description" data-project-id="${project.id}">Edit project</button></div>
+          ${projectPublications.map(publication => `
+            <article class="ledger-item">
+              <div class="ledger-main">
+                <div><h2>${escapeHTML(publication.name)}</h2><p>/${escapeHTML(project.prefix)}/${escapeHTML(publication.path)}/${publication.entry === "index.html" ? "" : escapeHTML(publication.entry)}</p></div>
+                <div class="ledger-description">${publication.description ? escapeHTML(publication.description) : `<span class="subtle">No publication description</span>`}</div>
+                <div class="ledger-actions">
+                  <button class="ledger-action" data-inline="preview" data-id="${publication.id}">Preview</button>
+                  <button class="ledger-action" data-inline="description" data-id="${publication.id}">Describe</button>
+                  <button class="ledger-action" data-inline="move" data-id="${publication.id}">Move</button>
+                  <button class="ledger-action delete" data-inline="delete" data-id="${publication.id}">Delete</button>
+                </div>
+              </div>
+              ${inlineWorkflow(publication)}
+            </article>`).join("")}
+        </section>`).join("");
 
       root.innerHTML = `
         <section class="c-shell">
           <div class="c-top">
-            <div><p class="eyebrow">Action ledger</p><h1>Find a page, then act on it</h1><p class="subtle">Every destructive step stays next to the publication it affects.</p></div>
+            <div><p class="eyebrow">Action ledger</p><h1>Find a page, then act on it</h1><p class="subtle">Projects group related publications. Actions still apply to one publication.</p></div>
             ${storageMarkup("c-storage")}
           </div>
-          <input class="input command-input" data-search type="search" value="${escapeHTML(state.query)}" placeholder="Search by title, URL, or private description" aria-label="Search publications">
-          <div class="c-label-row"><span>${publications.length} publications</span><span>Actions</span></div>
-          <div class="ledger">${ledger || `<div class="empty-state">No publications match this search.</div>`}</div>
+          <input class="input command-input" data-search type="search" value="${escapeHTML(state.query)}" placeholder="Search projects, publications, or private descriptions" aria-label="Search projects and publications">
+          <div class="c-label-row"><span>${groups.length} projects · ${publications.length} publications</span><span>Actions</span></div>
+          <div class="ledger">${ledger || `<div class="empty-state">No projects or publications match this search.</div>`}</div>
           <div class="activity-line">${escapeHTML(state.lastEvent)}</div>
         </section>`;
     }
@@ -553,10 +659,11 @@
     function renderPrototypeChrome() {
       const variant = variants.find(item => item.key === state.variant);
       document.getElementById("variant-label").textContent = `${variant.key} (${variant.name})`;
-      document.getElementById("state-summary").textContent = `Prototype state · ${state.publications.length} publications · ${formatBytes(storageUsed())}`;
+      document.getElementById("state-summary").textContent = `Prototype state · ${state.projects.length} projects · ${state.publications.length} publications · ${formatBytes(storageUsed())}`;
       stateOutput.textContent = JSON.stringify({
         variant: state.variant,
-        publications: state.publications.map(publication => ({ id: publication.id, prefix: publication.prefix, entry: publication.entry, bytes: publication.bytes, privateDescription: publication.description })),
+        projects: state.projects.map(project => ({ id: project.id, prefix: project.prefix, privateDescription: project.description })),
+        publications: state.publications.map(publication => ({ id: publication.id, projectId: publication.projectId, path: publication.path, entry: publication.entry, bytes: publication.bytes, privateDescription: publication.description })),
         selectedId: state.selectedId,
         query: state.query,
         pendingAction: state.pendingAction,
@@ -580,6 +687,10 @@
 
       root.querySelectorAll("[data-action]").forEach(element => {
         element.addEventListener("click", () => openAction(element.dataset.action, element.dataset.id));
+      });
+
+      root.querySelectorAll("[data-project-action]").forEach(element => {
+        element.addEventListener("click", () => openProjectDescription(element.dataset.projectId));
       });
 
       root.querySelectorAll("[data-inline]").forEach(element => {
@@ -613,47 +724,75 @@
         <div class="dialog-body">${body}</div>`;
     }
 
+    function openProjectDescription(projectId) {
+      const project = state.projects.find(item => item.id === projectId);
+      if (!project) return;
+      state.pendingAction = { type: "project-description", projectId };
+      state.lastEvent = `Editing project description for ${project.name}`;
+      dialogContent.innerHTML = dialogShell("Edit project description", `Private notes for every publication under /${escapeHTML(project.prefix)}/.`, `
+        <form id="project-description-form">
+          <label class="field-label" for="project-description-value">Description <span class="subtle">optional</span></label>
+          <textarea class="textarea" id="project-description-value" maxlength="240" placeholder="No description">${escapeHTML(project.description)}</textarea>
+          <div class="dialog-actions"><button class="button" data-dialog-close type="button">Cancel</button><button class="button primary" type="submit">Save project description</button></div>
+        </form>`);
+      dialog.querySelectorAll("[data-dialog-close]").forEach(button => button.addEventListener("click", closeDialog));
+      document.getElementById("project-description-form").addEventListener("submit", event => {
+        event.preventDefault();
+        project.description = document.getElementById("project-description-value").value.trim();
+        finishAction(project.description ? `Updated project description for ${project.name}` : `Removed project description from ${project.name}`);
+      });
+      renderPrototypeChrome();
+      dialog.showModal();
+      document.getElementById("project-description-value").focus();
+    }
+
     function openAction(type, id) {
       const publication = state.publications.find(item => item.id === id);
       if (!publication) return;
+      const project = projectFor(publication);
       state.selectedId = id;
       state.pendingAction = { type, publicationId: id };
       state.lastEvent = `Reviewing ${type} for ${publication.name}`;
 
       if (type === "preview") {
-        dialogContent.innerHTML = dialogShell("Publication preview", publicPath(publication), `
-          <div class="preview-dialog-frame"><strong>${escapeHTML(publication.name)}</strong><span>Public page preview</span></div>
+        dialogContent.innerHTML = dialogShell("Public preview", publicPath(publication), `
+          <div class="preview-dialog-frame"><strong>${escapeHTML(publication.name)}</strong><span>${escapeHTML(project.name)} publication</span></div>
+          <p class="subtle" style="margin-top:13px;font-size:13px;">Production behavior: open this public URL in a new tab.</p>
           <div class="dialog-actions"><button class="button primary" data-dialog-close type="button">Done</button></div>`);
       }
 
       if (type === "description") {
-        dialogContent.innerHTML = dialogShell("Edit private description", "This note is visible only in Page Hub.", `
+        dialogContent.innerHTML = dialogShell("Edit publication description", `Private notes for ${escapeHTML(publication.name)} in ${escapeHTML(project.name)}.`, `
           <form id="description-form">
             <label class="field-label" for="description-value">Description</label>
             <textarea class="textarea" id="description-value" maxlength="240">${escapeHTML(publication.description)}</textarea>
-            <div class="dialog-actions"><button class="button" data-dialog-close type="button">Cancel</button><button class="button primary" type="submit">Save description</button></div>
+            <div class="dialog-actions"><button class="button" data-dialog-close type="button">Cancel</button><button class="button primary" type="submit">Save publication description</button></div>
           </form>`);
       }
 
       if (type === "move") {
-        const proposedPrefix = `${publication.prefix}-moved`;
-        dialogContent.innerHTML = dialogShell("Move publication", "Changing the path changes its public URL.", `
+        const proposedPath = `${publication.path}-moved`;
+        const projectOptions = state.projects.map(item => `<option value="${item.id}" ${item.id === project.id ? "selected" : ""}>${escapeHTML(item.name)} · /${escapeHTML(item.prefix)}/</option>`).join("");
+        dialogContent.innerHTML = dialogShell("Move publication", "Choose a Project and publication path. The entry-point filename stays unchanged.", `
           <form id="move-form">
-            <label class="field-label" for="move-prefix">New path</label>
-            <input class="input" id="move-prefix" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" value="${escapeHTML(proposedPrefix)}" required>
-            <div class="url-change"><div><span>Old URL will stop working</span><div class="old-url" id="move-old-url">${escapeHTML(publicPath(publication))}</div></div><div><span>New URL</span><div class="new-url" id="move-new-url">${escapeHTML(`https://share.bdgn.me/${proposedPrefix}/${publication.entry === "index.html" ? "" : publication.entry}`)}</div></div></div>
-            <div class="warning-box">Page Hub will move ${publication.entry === "index.html" ? "the stored page" : `<code>${escapeHTML(publication.entry)}</code>`}. It will not leave a redirect at the old URL.</div>
+            <label class="field-label" for="move-project">Target project</label>
+            <select class="input" id="move-project">${projectOptions}</select>
+            <label class="field-label" for="move-path" style="margin-top:13px;">Publication path</label>
+            <input class="input" id="move-path" pattern="(?:[a-z0-9]+(?:-[a-z0-9]+)*/)*[a-z0-9]+(?:-[a-z0-9]+)*" value="${escapeHTML(proposedPath)}" required>
+            <div class="url-change"><div><span>Old URL will stop working</span><div class="old-url" id="move-old-url">${escapeHTML(publicPath(publication))}</div></div><div><span>New URL</span><div class="new-url" id="move-new-url">${escapeHTML(publicPathFor(project, proposedPath, publication.entry))}</div></div></div>
+            <div class="warning-box">Page Hub will preserve <code>${escapeHTML(publication.entry)}</code> exactly. It will not leave a redirect at the old URL.</div>
             <label class="check-row"><input id="move-acknowledge" type="checkbox" required><span>I understand that links to the old URL will break.</span></label>
             <div class="dialog-actions"><button class="button" data-dialog-close type="button">Cancel</button><button class="button primary" type="submit">Move publication</button></div>
           </form>`);
       }
 
       if (type === "delete") {
-        dialogContent.innerHTML = dialogShell("Permanently delete publication", `Delete ${escapeHTML(publication.name)} and its stored page.`, `
+        const expected = confirmationPath(publication);
+        dialogContent.innerHTML = dialogShell("Permanently delete publication", `Delete ${escapeHTML(publication.name)} from ${escapeHTML(project.name)}.`, `
           <form id="delete-form">
-            <div class="danger-box">This removes <strong>${formatBytes(publication.bytes)}</strong> from storage and breaks <code>/${escapeHTML(publication.prefix)}/</code>. There is no trash or recovery.</div>
-            <label class="field-label" for="delete-confirmation">Type <code>${escapeHTML(publication.prefix)}</code> to confirm</label>
-            <input class="input" id="delete-confirmation" autocomplete="off" data-expected="${escapeHTML(publication.prefix)}" required>
+            <div class="danger-box">This removes <strong>${formatBytes(publication.bytes)}</strong> from storage and breaks <code>${escapeHTML(publicPath(publication).replace("https://share.bdgn.me/", "/"))}</code>. Other publications in <strong>${escapeHTML(project.name)}</strong> stay in place. There is no trash or recovery.</div>
+            <label class="field-label" for="delete-confirmation">Type <code>${escapeHTML(expected)}</code> to confirm</label>
+            <input class="input" id="delete-confirmation" autocomplete="off" data-expected="${escapeHTML(expected)}" required>
             <div class="dialog-actions"><button class="button" data-dialog-close type="button">Cancel</button><button class="button danger" id="delete-submit" type="submit" disabled>Delete forever</button></div>
           </form>`);
       }
@@ -661,7 +800,7 @@
       bindDialogEvents(publication, type);
       renderPrototypeChrome();
       dialog.showModal();
-      const firstField = dialog.querySelector("textarea, input");
+      const firstField = dialog.querySelector("textarea, input, select");
       firstField?.focus();
     }
 
@@ -671,22 +810,27 @@
       if (type === "description") {
         document.getElementById("description-form").addEventListener("submit", event => {
           event.preventDefault();
-          publication.description = document.getElementById("description-value").value.trim() || "No private description.";
-          finishAction(`Updated private description for ${publication.name}`);
+          publication.description = document.getElementById("description-value").value.trim();
+          finishAction(publication.description ? `Updated publication description for ${publication.name}` : `Removed publication description from ${publication.name}`);
         });
       }
 
       if (type === "move") {
-        const prefixInput = document.getElementById("move-prefix");
-        prefixInput.addEventListener("input", () => {
-          document.getElementById("move-new-url").textContent = `https://share.bdgn.me/${prefixInput.value}/${publication.entry === "index.html" ? "" : publication.entry}`;
-        });
+        const projectSelect = document.getElementById("move-project");
+        const pathInput = document.getElementById("move-path");
+        const updateNewUrl = () => {
+          const targetProject = state.projects.find(project => project.id === projectSelect.value);
+          document.getElementById("move-new-url").textContent = publicPathFor(targetProject, pathInput.value, publication.entry);
+        };
+        projectSelect.addEventListener("change", updateNewUrl);
+        pathInput.addEventListener("input", updateNewUrl);
         document.getElementById("move-form").addEventListener("submit", event => {
           event.preventDefault();
           if (!event.currentTarget.reportValidity()) return;
-          const oldPrefix = publication.prefix;
-          publication.prefix = prefixInput.value;
-          finishAction(`Moved ${publication.name} from /${oldPrefix}/ to /${publication.prefix}/`);
+          const oldUrl = publicPath(publication);
+          publication.projectId = projectSelect.value;
+          publication.path = pathInput.value;
+          finishAction(`Moved ${publication.name} from ${oldUrl.replace("https://share.bdgn.me", "")} to ${publicPath(publication).replace("https://share.bdgn.me", "")}`);
         });
       }
 
@@ -696,9 +840,10 @@
         confirmation.addEventListener("input", () => { submit.disabled = confirmation.value !== confirmation.dataset.expected; });
         document.getElementById("delete-form").addEventListener("submit", event => {
           event.preventDefault();
-          if (confirmation.value !== publication.prefix) return;
+          if (confirmation.value !== confirmationPath(publication)) return;
+          const projectId = publication.projectId;
           state.publications = state.publications.filter(item => item.id !== publication.id);
-          state.selectedId = state.publications[0]?.id || null;
+          state.selectedId = state.publications.find(item => item.projectId === projectId)?.id || state.publications[0]?.id || null;
           finishAction(`Permanently deleted ${publication.name}`);
         });
       }
