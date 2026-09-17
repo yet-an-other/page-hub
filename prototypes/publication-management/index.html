@@ -156,6 +156,8 @@
     .publication-name { display: block; margin-bottom: 2px; padding-left: 14px; font-weight: 740; }
     .publication-url { color: var(--muted); font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; }
     .publication-name + .publication-url { padding-left: 14px; }
+    .publication-preview-link { display: block; padding-top: 0; padding-right: 0; padding-bottom: 0; border: 0; background: transparent; text-align: left; text-decoration: underline; text-decoration-color: #b8c1bb; text-underline-offset: 2px; }
+    .publication-preview-link:hover { color: var(--accent); text-decoration-color: currentColor; }
     .description-cell { max-width: 230px; color: #4e5853; }
     .type-pill { display: inline-flex; padding: 4px 7px; border-radius: 999px; background: #eef1ee; color: #53605a; font-size: 11px; white-space: nowrap; }
     .a-detail { padding: 22px; border-left: 1px solid var(--line); background: #fcfdfb; }
@@ -500,11 +502,11 @@
         const collapsed = state.collapsedProjectIds.includes(project.id) && !state.query.trim();
         const rows = projectPublications.map(publication => `
           <tr class="publication-row ${publication.id === state.selectedId ? "selected" : ""}" data-select="${publication.id}" tabindex="0">
-            <td><span class="publication-name">${escapeHTML(publication.name)}</span><span class="publication-url">/${escapeHTML(project.prefix)}/${escapeHTML(publication.path)}/${publication.entry === "index.html" ? "" : escapeHTML(publication.entry)}</span></td>
+            <td><span class="publication-name">${escapeHTML(publication.name)}</span><button class="publication-url publication-preview-link" data-action="preview" data-id="${publication.id}" type="button" aria-label="Preview ${escapeHTML(publication.name)}" title="Preview in Page Hub">/${escapeHTML(project.prefix)}/${escapeHTML(publication.path)}/${publication.entry === "index.html" ? "" : escapeHTML(publication.entry)}</button></td>
             <td class="description-cell">${publication.description ? escapeHTML(publication.description) : `<span class="subtle">No publication description</span>`}</td>
             <td>${escapeHTML(publication.updated)}</td>
             <td>${formatBytes(publication.bytes)}</td>
-            <td class="open-cell"><button class="open-publication-icon" data-action="preview" data-id="${publication.id}" type="button" aria-label="Open ${escapeHTML(publication.name)}" title="Open public page">↗</button></td>
+            <td class="open-cell"><a class="open-publication-icon" data-open-publication href="${escapeHTML(publicPath(publication))}" target="_blank" rel="noopener noreferrer" aria-label="Open ${escapeHTML(publication.name)} public page" title="Open public page">↗</a></td>
           </tr>`).join("");
         const description = project.description
           ? `<span class="project-description">${escapeHTML(project.description)}</span>`
@@ -703,6 +705,10 @@
           event.stopPropagation();
           openAction(element.dataset.action, element.dataset.id);
         });
+      });
+
+      root.querySelectorAll("[data-open-publication]").forEach(element => {
+        element.addEventListener("click", event => event.stopPropagation());
       });
 
       root.querySelectorAll("[data-project-toggle]").forEach(element => {
