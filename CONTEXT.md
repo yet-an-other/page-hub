@@ -11,3 +11,7 @@ _Avoid_: Using Project as a synonym for Publication
 **Publication**:
 A public item managed as one unit within a Project. It may contain one file or a complete static site and may have its own private description.
 _Avoid_: Project, artifact
+
+**Adoption candidate**:
+A storage layout that Page Hub has discovered but has not accepted as a Publication. It remains unmanaged until Page Hub validates and accepts it.
+_Avoid_: Publication
