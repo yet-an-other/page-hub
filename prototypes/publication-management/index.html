@@ -1,0 +1,765 @@
+<!doctype html>
+<!--
+  THROWAWAY PROTOTYPE for issue #5. Do not promote this file to production.
+  Three variants of the publication management workflow, switchable via ?variant=, on a new prototype-only page.
+  All data and mutations are local to this browser tab.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Page Hub publication workflow prototype</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17201d;
+      --muted: #66706b;
+      --line: #dce1dd;
+      --paper: #f7f8f5;
+      --panel: #ffffff;
+      --accent: #126448;
+      --accent-soft: #e0f1e9;
+      --danger: #a02c2c;
+      --danger-soft: #fce8e6;
+      --warning: #915b14;
+      --warning-soft: #fff0d1;
+      --shadow: 0 18px 55px rgba(20, 32, 27, 0.12);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; color: var(--ink); background: var(--paper); }
+    button, input, textarea { font: inherit; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    button { cursor: pointer; }
+    a { color: inherit; }
+    code { font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.92em; }
+
+    .prototype-banner {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      padding: 7px 16px;
+      color: #f7fbf9;
+      background: #25322d;
+      font-size: 12px;
+      letter-spacing: 0.02em;
+    }
+
+    .app-header {
+      height: 66px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 0 28px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(14px);
+    }
+    .brand { display: flex; align-items: center; gap: 11px; font-weight: 750; }
+    .brand-mark {
+      width: 31px;
+      height: 31px;
+      display: grid;
+      place-items: center;
+      border-radius: 9px;
+      color: #fff;
+      background: var(--accent);
+      font-family: Georgia, serif;
+      font-size: 19px;
+    }
+    .operator { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 13px; }
+    .operator-dot { width: 8px; height: 8px; border-radius: 50%; background: #37a373; box-shadow: 0 0 0 3px #dff4e9; }
+
+    .variant-root { min-height: calc(100vh - 91px); padding-bottom: 170px; }
+    .eyebrow { margin: 0 0 7px; color: var(--accent); font-size: 12px; font-weight: 750; letter-spacing: 0.09em; text-transform: uppercase; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 7px; font-size: clamp(28px, 3vw, 40px); letter-spacing: -0.035em; }
+    h2 { letter-spacing: -0.02em; }
+    .subtle { color: var(--muted); }
+    .private-label { color: #5d665f; font-size: 12px; }
+    .private-label::before { content: "▣ "; color: var(--accent); }
+
+    .button {
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 8px 13px;
+      border: 1px solid #cbd2cd;
+      border-radius: 9px;
+      color: var(--ink);
+      background: #fff;
+      font-weight: 680;
+      text-decoration: none;
+    }
+    .button:hover { border-color: #86928c; background: #fafbf9; }
+    .button.primary { color: #fff; border-color: var(--accent); background: var(--accent); }
+    .button.danger { color: var(--danger); border-color: #e2b5b1; background: #fff; }
+    .button.ghost { border-color: transparent; background: transparent; }
+    .button.small { min-height: 32px; padding: 5px 9px; font-size: 12px; }
+    .button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .input, .textarea {
+      width: 100%;
+      border: 1px solid #c8d0ca;
+      border-radius: 9px;
+      color: var(--ink);
+      background: #fff;
+      outline: none;
+    }
+    .input { height: 40px; padding: 0 12px; }
+    .textarea { min-height: 112px; padding: 10px 12px; resize: vertical; }
+    .input:focus, .textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(18, 100, 72, 0.12); }
+    .field-label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 720; }
+
+    .storage-line { display: flex; justify-content: space-between; gap: 16px; font-size: 13px; }
+    .meter { height: 7px; overflow: hidden; border-radius: 999px; background: #e5e9e5; }
+    .meter > span { display: block; width: max(0.08%, 3px); height: 100%; border-radius: inherit; background: var(--accent); }
+
+    /* Variant A: dense inventory and a detail drawer. */
+    .a-shell { max-width: 1320px; margin: 0 auto; padding: 43px 32px; }
+    .a-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 26px; }
+    .a-storage { width: 255px; padding: 15px 17px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+    .a-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 13px; }
+    .search-wrap { position: relative; flex: 1; max-width: 430px; }
+    .search-wrap::before { content: "⌕"; position: absolute; left: 12px; top: 8px; color: var(--muted); font-size: 20px; }
+    .search-wrap .input { padding-left: 37px; }
+    .count-label { margin-left: auto; color: var(--muted); font-size: 13px; }
+    .a-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 320px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--panel); box-shadow: 0 8px 30px rgba(36, 48, 43, 0.05); }
+    .publication-table { width: 100%; border-collapse: collapse; }
+    .publication-table th { padding: 12px 15px; color: var(--muted); background: #f7f8f6; font-size: 11px; letter-spacing: 0.06em; text-align: left; text-transform: uppercase; }
+    .publication-table td { padding: 13px 15px; border-top: 1px solid #edf0ed; font-size: 13px; vertical-align: middle; }
+    .publication-table tbody tr { cursor: pointer; }
+    .publication-table tbody tr:hover { background: #f8fbf9; }
+    .publication-table tbody tr.selected { background: var(--accent-soft); }
+    .publication-name { display: block; margin-bottom: 2px; font-weight: 740; }
+    .publication-url { color: var(--muted); font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; }
+    .description-cell { max-width: 230px; color: #4e5853; }
+    .type-pill { display: inline-flex; padding: 4px 7px; border-radius: 999px; background: #eef1ee; color: #53605a; font-size: 11px; white-space: nowrap; }
+    .a-detail { padding: 22px; border-left: 1px solid var(--line); background: #fcfdfb; }
+    .a-detail h2 { margin-bottom: 4px; font-size: 20px; }
+    .detail-url { margin-bottom: 21px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+    .detail-block { margin: 0 0 20px; padding: 0 0 18px; border-bottom: 1px solid var(--line); }
+    .detail-block dt { margin-bottom: 5px; color: var(--muted); font-size: 11px; text-transform: uppercase; }
+    .detail-block dd { margin: 0; font-size: 13px; line-height: 1.5; }
+    .detail-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .detail-actions .preview-action { grid-column: 1 / -1; }
+
+    /* Variant B: preview-first three-pane workspace. */
+    .b-workspace { height: calc(100vh - 91px); min-height: 670px; display: grid; grid-template-columns: 255px minmax(380px, 1fr) 320px; background: #e9ece9; }
+    .b-sidebar, .b-inspector { background: #fff; }
+    .b-sidebar { display: flex; flex-direction: column; border-right: 1px solid var(--line); }
+    .b-sidebar-head { padding: 21px 18px 12px; }
+    .b-sidebar-head h1 { font-size: 21px; }
+    .b-list { overflow: auto; padding: 4px 8px 16px; }
+    .b-list-item { width: 100%; display: block; padding: 11px 10px; border: 0; border-radius: 9px; background: transparent; text-align: left; }
+    .b-list-item:hover { background: #f4f6f3; }
+    .b-list-item.selected { color: #0d4f38; background: var(--accent-soft); }
+    .b-list-item strong { display: block; margin-bottom: 3px; font-size: 13px; }
+    .b-list-item span { display: block; overflow: hidden; color: var(--muted); font-family: "SFMono-Regular", Consolas, monospace; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .b-sidebar-foot { margin-top: auto; padding: 16px 18px; border-top: 1px solid var(--line); }
+    .b-preview { min-width: 0; display: flex; flex-direction: column; padding: 20px; }
+    .browser-bar { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 12px 12px 0 0; background: #27322e; color: #dce4df; }
+    .browser-dots { display: flex; gap: 5px; }
+    .browser-dots span { width: 8px; height: 8px; border-radius: 50%; background: #6c7872; }
+    .browser-url { min-width: 0; flex: 1; margin-left: 6px; padding: 6px 10px; overflow: hidden; border-radius: 6px; background: #3b4742; font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .mock-page { flex: 1; display: grid; place-items: center; padding: 38px; border-radius: 0 0 12px 12px; color: #25302b; background: #fff; box-shadow: var(--shadow); }
+    .mock-document { width: min(600px, 90%); }
+    .mock-document .mock-kicker { color: #a05a32; font-family: Georgia, serif; font-size: 14px; font-style: italic; }
+    .mock-document h2 { margin: 12px 0 16px; font-family: Georgia, serif; font-size: clamp(34px, 5vw, 61px); font-weight: 500; line-height: 0.98; }
+    .mock-rule { width: 60px; height: 3px; margin: 22px 0; background: #c96b3f; }
+    .mock-copy { max-width: 510px; color: #5b625f; font-family: Georgia, serif; font-size: 16px; line-height: 1.7; }
+    .preview-note { margin: 11px 0 0; color: var(--muted); font-size: 11px; text-align: center; }
+    .b-inspector { overflow: auto; padding: 24px 21px; border-left: 1px solid var(--line); }
+    .b-inspector h2 { margin-bottom: 6px; font-size: 22px; }
+    .b-inspector .button { width: 100%; margin-bottom: 8px; }
+    .metadata-list { margin: 22px 0; padding: 16px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .metadata-row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 10px; font-size: 12px; }
+    .metadata-row:last-child { margin-bottom: 0; }
+    .metadata-row span:first-child { color: var(--muted); }
+    .inspector-description { margin-bottom: 22px; padding: 13px; border: 1px solid var(--line); border-radius: 9px; background: #f8faf7; font-size: 13px; line-height: 1.5; }
+
+    /* Variant C: actions happen inline in a quiet ledger. */
+    .c-shell { max-width: 920px; margin: 0 auto; padding: 46px 28px; }
+    .c-top { display: grid; grid-template-columns: 1fr 280px; align-items: end; gap: 45px; margin-bottom: 37px; }
+    .c-top h1 { max-width: 550px; }
+    .c-storage { padding-bottom: 5px; }
+    .command-input { height: 54px; padding: 0 17px; border: 1px solid #aeb9b2; border-radius: 12px; font-size: 16px; box-shadow: 0 9px 25px rgba(29, 42, 35, 0.06); }
+    .c-label-row { display: flex; justify-content: space-between; margin: 31px 0 10px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; }
+    .ledger { border-top: 1px solid #cdd4cf; }
+    .ledger-item { border-bottom: 1px solid #cdd4cf; }
+    .ledger-main { display: grid; grid-template-columns: minmax(180px, 1.2fr) minmax(150px, 1fr) auto; align-items: center; gap: 20px; padding: 17px 5px; }
+    .ledger-main h2 { margin: 0 0 3px; font-size: 16px; }
+    .ledger-main p { margin: 0; overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+    .ledger-description { color: #47524c; font-size: 13px; line-height: 1.45; }
+    .ledger-actions { display: flex; gap: 3px; }
+    .ledger-action { padding: 7px 8px; border: 0; border-radius: 7px; color: #46514b; background: transparent; font-size: 12px; }
+    .ledger-action:hover { color: var(--accent); background: var(--accent-soft); }
+    .ledger-action.delete:hover { color: var(--danger); background: var(--danger-soft); }
+    .inline-workflow { margin: -1px 0 16px; padding: 17px; border-left: 3px solid var(--accent); background: #edf5f0; }
+    .inline-workflow-head { display: flex; justify-content: space-between; gap: 20px; }
+    .inline-workflow h3 { margin: 0 0 5px; font-size: 15px; }
+    .inline-workflow p { margin-bottom: 13px; color: #59635e; font-size: 13px; }
+    .inline-workflow .button { margin-right: 6px; }
+    .activity-line { display: flex; align-items: center; gap: 10px; margin-top: 28px; color: var(--muted); font-size: 12px; }
+    .activity-line::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+
+    .empty-state { padding: 55px 25px; color: var(--muted); text-align: center; }
+
+    /* Prototype-only state view and variant switcher. */
+    .state-inspector {
+      position: fixed;
+      z-index: 20;
+      right: 18px;
+      bottom: 74px;
+      width: min(390px, calc(100vw - 36px));
+      border: 1px solid #52605a;
+      border-radius: 10px;
+      color: #edf4f0;
+      background: rgba(28, 38, 34, 0.96);
+      box-shadow: var(--shadow);
+      font-size: 11px;
+    }
+    .state-inspector summary { padding: 9px 12px; cursor: pointer; font-weight: 730; }
+    .state-inspector pre { max-height: 210px; margin: 0; padding: 0 12px 12px; overflow: auto; color: #cde4d8; white-space: pre-wrap; }
+    .prototype-switcher {
+      position: fixed;
+      z-index: 30;
+      left: 50%;
+      bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px;
+      border: 1px solid #53605a;
+      border-radius: 999px;
+      color: #f6fbf8;
+      background: #1f2a26;
+      box-shadow: 0 10px 35px rgba(14, 24, 20, 0.3);
+      transform: translateX(-50%);
+    }
+    .switcher-button { width: 35px; height: 35px; border: 0; border-radius: 50%; color: inherit; background: transparent; font-size: 17px; }
+    .switcher-button:hover { background: #3a4943; }
+    .switcher-label { min-width: 175px; padding: 0 8px; font-size: 12px; font-weight: 730; text-align: center; }
+
+    dialog { width: min(540px, calc(100vw - 30px)); padding: 0; border: 0; border-radius: 15px; color: var(--ink); background: #fff; box-shadow: var(--shadow); }
+    dialog::backdrop { background: rgba(12, 19, 16, 0.56); backdrop-filter: blur(2px); }
+    .dialog-head { display: flex; align-items: start; justify-content: space-between; gap: 18px; padding: 22px 24px 13px; }
+    .dialog-head h2 { margin-bottom: 5px; font-size: 22px; }
+    .dialog-head p { margin-bottom: 0; color: var(--muted); font-size: 13px; }
+    .dialog-close { width: 31px; height: 31px; border: 0; border-radius: 50%; color: var(--muted); background: #f0f2ef; }
+    .dialog-body { padding: 8px 24px 24px; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
+    .warning-box { margin: 13px 0 17px; padding: 12px 14px; border-radius: 9px; color: #71440b; background: var(--warning-soft); font-size: 13px; line-height: 1.45; }
+    .danger-box { margin: 13px 0 17px; padding: 12px 14px; border-radius: 9px; color: #812525; background: var(--danger-soft); font-size: 13px; line-height: 1.45; }
+    .check-row { display: flex; align-items: start; gap: 9px; margin-top: 13px; color: #434c47; font-size: 13px; line-height: 1.4; }
+    .check-row input { margin-top: 3px; }
+    .url-change { display: grid; gap: 8px; margin: 16px 0; padding: 13px; border: 1px solid var(--line); border-radius: 9px; font-size: 12px; }
+    .url-change span { display: block; color: var(--muted); font-size: 10px; text-transform: uppercase; }
+    .url-change .old-url { color: var(--danger); text-decoration: line-through; overflow-wrap: anywhere; }
+    .url-change .new-url { color: var(--accent); overflow-wrap: anywhere; }
+    .preview-dialog-frame { padding: 42px 27px; border: 1px solid var(--line); border-radius: 10px; background: #f5f1e8; text-align: center; }
+    .preview-dialog-frame strong { display: block; margin-bottom: 8px; font-family: Georgia, serif; font-size: 29px; }
+
+    .toast { position: fixed; z-index: 50; left: 50%; top: 78px; padding: 10px 15px; border-radius: 9px; color: #fff; background: #183c2f; box-shadow: var(--shadow); font-size: 13px; opacity: 0; transform: translate(-50%, -10px); transition: 160ms ease; pointer-events: none; }
+    .toast.visible { opacity: 1; transform: translate(-50%, 0); }
+
+    @media (max-width: 1000px) {
+      .a-workspace { grid-template-columns: 1fr; }
+      .a-detail { border-top: 1px solid var(--line); border-left: 0; }
+      .b-workspace { grid-template-columns: 220px 1fr; }
+      .b-inspector { grid-column: 1 / -1; border-top: 1px solid var(--line); border-left: 0; }
+    }
+
+    @media (max-width: 720px) {
+      .prototype-banner { text-align: center; }
+      .app-header { height: 58px; padding: 0 16px; }
+      .operator span:last-child { display: none; }
+      .variant-root { min-height: calc(100vh - 83px); }
+      .a-shell, .c-shell { padding: 28px 16px 180px; }
+      .a-heading, .c-top { display: block; }
+      .a-storage, .c-storage { width: 100%; margin-top: 20px; }
+      .publication-table th:nth-child(2), .publication-table td:nth-child(2), .publication-table th:nth-child(3), .publication-table td:nth-child(3), .publication-table th:nth-child(4), .publication-table td:nth-child(4) { display: none; }
+      .b-workspace { height: auto; min-height: calc(100vh - 83px); grid-template-columns: 1fr; }
+      .b-sidebar { width: 100%; min-width: 0; border-right: 0; }
+      .b-list { width: 100%; min-width: 0; display: flex; gap: 4px; overflow-x: auto; }
+      .b-list-item { min-width: 170px; flex: 0 0 170px; }
+      .b-preview { min-width: 0; min-height: 490px; padding: 12px; }
+      .b-inspector { min-width: 0; grid-column: auto; }
+      .b-inspector code { overflow-wrap: anywhere; }
+      .ledger-main { grid-template-columns: 1fr; gap: 8px; }
+      .ledger-actions { flex-wrap: wrap; }
+      .state-inspector { bottom: 70px; }
+      .switcher-label { min-width: 145px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="prototype-banner">Throwaway prototype <span aria-hidden="true">·</span> Changes reset when this tab closes</div>
+  <header class="app-header">
+    <div class="brand"><span class="brand-mark">P</span><span>Page Hub</span></div>
+    <div class="operator"><span class="operator-dot"></span><span>Private manager</span><span>ib</span></div>
+  </header>
+
+  <main id="variant-root" class="variant-root"></main>
+
+  <details class="state-inspector">
+    <summary id="state-summary">Prototype state</summary>
+    <pre id="state-output"></pre>
+  </details>
+
+  <nav class="prototype-switcher" aria-label="Prototype variants">
+    <button class="switcher-button" id="variant-previous" type="button" aria-label="Previous variant">←</button>
+    <div class="switcher-label" id="variant-label"></div>
+    <button class="switcher-button" id="variant-next" type="button" aria-label="Next variant">→</button>
+  </nav>
+
+  <dialog id="action-dialog" aria-labelledby="dialog-title">
+    <div id="dialog-content"></div>
+  </dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const quotaBytes = 30 * 1024 * 1024 * 1024;
+    const variants = [
+      { key: "A", name: "Inventory table" },
+      { key: "B", name: "Preview desk" },
+      { key: "C", name: "Action ledger" }
+    ];
+
+    const initialPublications = [
+      { id: "pub-001", name: "Launch notes", prefix: "launch-notes", entry: "index.html", bytes: 42586, updated: "Sep 14, 2026", description: "Release notes for the latest internal tool rollout." },
+      { id: "pub-002", name: "API review", prefix: "api-review", entry: "index.html", bytes: 14361, updated: "Sep 14, 2026", description: "Review copy for the publishing API proposal." },
+      { id: "pub-003", name: "Workshop board", prefix: "workshop-board", entry: "index.html", bytes: 18000, updated: "Sep 13, 2026", description: "Facilitation board used during the September workshop." },
+      { id: "pub-004", name: "Decision log", prefix: "decision-log", entry: "index.html", bytes: 20000, updated: "Sep 12, 2026", description: "Rendered decision notes for quick sharing." },
+      { id: "pub-005", name: "Layout study", prefix: "layout-study", entry: "index.html", bytes: 16000, updated: "Sep 11, 2026", description: "Early layout directions. Keep for reference." },
+      { id: "pub-006", name: "Reader prototype", prefix: "reader-prototype", entry: "index.html", bytes: 26698, updated: "Sep 10, 2026", description: "Prototype for the document reader flow." },
+      { id: "pub-007", name: "Quarterly brief", prefix: "quarterly-brief", entry: "QuarterlyBrief.html", bytes: 56586, updated: "Sep 10, 2026", description: "Named-file publication with case-sensitive entry point." },
+      { id: "pub-008", name: "Migration report", prefix: "migration-report", entry: "migration-report.html", bytes: 48780, updated: "Sep 9, 2026", description: "Findings from the storage migration rehearsal." },
+      { id: "pub-009", name: "Storage findings", prefix: "storage-findings", entry: "storage.html", bytes: 27549, updated: "Sep 9, 2026", description: "Notes on quota, object layout, and routing behavior." },
+      { id: "pub-010", name: "Auth comparison", prefix: "auth-comparison", entry: "notes.html", bytes: 41177, updated: "Sep 8, 2026", description: "Private notes comparing manager sign-in choices." }
+    ];
+
+    const requestedVariant = new URLSearchParams(location.search).get("variant")?.toUpperCase();
+    const state = {
+      variant: variants.some(item => item.key === requestedVariant) ? requestedVariant : "A",
+      publications: structuredClone(initialPublications),
+      selectedId: "pub-001",
+      query: "",
+      inlineAction: null,
+      pendingAction: null,
+      lastEvent: "Prototype opened"
+    };
+
+    const root = document.getElementById("variant-root");
+    const dialog = document.getElementById("action-dialog");
+    const dialogContent = document.getElementById("dialog-content");
+    const stateOutput = document.getElementById("state-output");
+    const toast = document.getElementById("toast");
+    let toastTimer;
+
+    function escapeHTML(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function formatBytes(bytes) {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
+      return `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
+    }
+
+    function storageUsed() {
+      return state.publications.reduce((sum, publication) => sum + publication.bytes, 0);
+    }
+
+    function publicPath(publication) {
+      const suffix = publication.entry === "index.html" ? "" : publication.entry;
+      return `https://share.bdgn.me/${publication.prefix}/${suffix}`;
+    }
+
+    function visiblePublications() {
+      const query = state.query.trim().toLowerCase();
+      if (!query) return state.publications;
+      return state.publications.filter(publication =>
+        [publication.name, publication.prefix, publication.description, publication.entry].some(value => value.toLowerCase().includes(query))
+      );
+    }
+
+    function currentPublication() {
+      return state.publications.find(publication => publication.id === state.selectedId) || state.publications[0] || null;
+    }
+
+    function storageMarkup(className = "") {
+      const used = storageUsed();
+      return `
+        <div class="${className}">
+          <div class="storage-line"><strong>${formatBytes(used)} used</strong><span class="subtle">30 GiB</span></div>
+          <div class="meter" aria-label="${formatBytes(used)} of 30 GiB used"><span style="width:${Math.max((used / quotaBytes) * 100, 0.08)}%"></span></div>
+        </div>`;
+    }
+
+    function renderVariantA() {
+      const publications = visiblePublications();
+      const selected = currentPublication();
+      const rows = publications.map(publication => `
+        <tr class="${publication.id === state.selectedId ? "selected" : ""}" data-select="${publication.id}" tabindex="0">
+          <td><span class="publication-name">${escapeHTML(publication.name)}</span><span class="publication-url">/${escapeHTML(publication.prefix)}/</span></td>
+          <td class="description-cell">${escapeHTML(publication.description)}</td>
+          <td>${escapeHTML(publication.updated)}</td>
+          <td>${formatBytes(publication.bytes)}</td>
+          <td><span class="type-pill">${publication.entry === "index.html" ? "Clean URL" : "Named file"}</span></td>
+        </tr>`).join("");
+
+      root.innerHTML = `
+        <section class="a-shell">
+          <div class="a-heading">
+            <div><p class="eyebrow">Publication inventory</p><h1>Your shared pages</h1><p class="subtle">Public pages and their private management notes.</p></div>
+            ${storageMarkup("a-storage")}
+          </div>
+          <div class="a-toolbar">
+            <div class="search-wrap"><input class="input" data-search type="search" value="${escapeHTML(state.query)}" placeholder="Search publications" aria-label="Search publications"></div>
+            <span class="count-label">${publications.length} of ${state.publications.length}</span>
+          </div>
+          <div class="a-workspace">
+            <div>
+              ${publications.length ? `<table class="publication-table">
+                <thead><tr><th>Publication</th><th>Private description</th><th>Updated</th><th>Size</th><th>Entry</th></tr></thead>
+                <tbody>${rows}</tbody>
+              </table>` : `<div class="empty-state">No publications match this search.</div>`}
+            </div>
+            <aside class="a-detail">
+              ${selected ? `
+                <h2>${escapeHTML(selected.name)}</h2>
+                <p class="detail-url">${escapeHTML(publicPath(selected))}</p>
+                <dl class="detail-block">
+                  <dt>Private description</dt><dd>${escapeHTML(selected.description)}</dd>
+                </dl>
+                <dl class="detail-block">
+                  <dt>Stored object</dt><dd><code>${escapeHTML(selected.prefix)}/${escapeHTML(selected.entry)}</code><br>${formatBytes(selected.bytes)} · updated ${escapeHTML(selected.updated)}</dd>
+                </dl>
+                <div class="detail-actions">
+                  <button class="button primary preview-action" data-action="preview" data-id="${selected.id}">Preview publication</button>
+                  <button class="button" data-action="description" data-id="${selected.id}">Edit notes</button>
+                  <button class="button" data-action="move" data-id="${selected.id}">Move</button>
+                  <button class="button danger" data-action="delete" data-id="${selected.id}">Delete</button>
+                </div>` : `<p class="subtle">No publications remain.</p>`}
+            </aside>
+          </div>
+        </section>`;
+    }
+
+    function renderVariantB() {
+      const publications = visiblePublications();
+      const selected = currentPublication();
+      const list = publications.map(publication => `
+        <button class="b-list-item ${publication.id === state.selectedId ? "selected" : ""}" data-select="${publication.id}" type="button">
+          <strong>${escapeHTML(publication.name)}</strong><span>/${escapeHTML(publication.prefix)}/${publication.entry === "index.html" ? "" : escapeHTML(publication.entry)}</span>
+        </button>`).join("");
+
+      root.innerHTML = `
+        <section class="b-workspace">
+          <aside class="b-sidebar">
+            <div class="b-sidebar-head"><p class="eyebrow">Preview desk</p><h1>Publications</h1><input class="input" data-search type="search" value="${escapeHTML(state.query)}" placeholder="Filter list" aria-label="Filter publications"></div>
+            <div class="b-list">${list || `<div class="empty-state">No matches.</div>`}</div>
+            <div class="b-sidebar-foot">${storageMarkup("")}</div>
+          </aside>
+          ${selected ? `
+            <section class="b-preview" aria-label="Publication preview">
+              <div class="browser-bar"><div class="browser-dots"><span></span><span></span><span></span></div><div class="browser-url">${escapeHTML(publicPath(selected))}</div><button class="button small" data-action="preview" data-id="${selected.id}">Open</button></div>
+              <div class="mock-page">
+                <div class="mock-document"><div class="mock-kicker">Published page</div><h2>${escapeHTML(selected.name)}</h2><div class="mock-rule"></div><p class="mock-copy">This frame stands in for the live publication. The manager keeps its controls outside the public page, so the preview stays close to what a reader sees.</p></div>
+              </div>
+              <p class="preview-note">Representative preview. No remote page is loaded in this prototype.</p>
+            </section>
+            <aside class="b-inspector">
+              <p class="eyebrow">Selected publication</p><h2>${escapeHTML(selected.name)}</h2><p class="detail-url">/${escapeHTML(selected.prefix)}/${selected.entry === "index.html" ? "" : escapeHTML(selected.entry)}</p>
+              <div class="inspector-description"><span class="private-label">Private description</span><br><br>${escapeHTML(selected.description)}</div>
+              <button class="button" data-action="description" data-id="${selected.id}">Edit private description</button>
+              <div class="metadata-list">
+                <div class="metadata-row"><span>Entry point</span><code>${escapeHTML(selected.entry)}</code></div>
+                <div class="metadata-row"><span>Stored size</span><span>${formatBytes(selected.bytes)}</span></div>
+                <div class="metadata-row"><span>Last changed</span><span>${escapeHTML(selected.updated)}</span></div>
+              </div>
+              <button class="button" data-action="move" data-id="${selected.id}">Move to a new URL</button>
+              <button class="button danger" data-action="delete" data-id="${selected.id}">Permanently delete</button>
+            </aside>` : `<div class="empty-state">No publications remain.</div>`}
+        </section>`;
+    }
+
+    function inlineWorkflow(publication) {
+      if (!state.inlineAction || state.inlineAction.id !== publication.id) return "";
+      const action = state.inlineAction.type;
+      const copy = {
+        preview: ["Preview publication", "Open a manager preview without changing the public page."],
+        description: ["Edit private description", "Update notes that only appear in Page Hub."],
+        move: ["Move publication", "Choose a new path. The current public URL will stop working."],
+        delete: ["Permanently delete", "Review the object and confirm an irreversible delete."]
+      }[action];
+      return `
+        <div class="inline-workflow">
+          <div class="inline-workflow-head"><div><h3>${copy[0]}</h3><p>${copy[1]}</p></div><button class="button small ghost" data-inline-close type="button">Close</button></div>
+          <button class="button ${action === "delete" ? "danger" : "primary"}" data-action="${action}" data-id="${publication.id}">${action === "preview" ? "Show preview" : "Continue"}</button>
+        </div>`;
+    }
+
+    function renderVariantC() {
+      const publications = visiblePublications();
+      const ledger = publications.map(publication => `
+        <article class="ledger-item">
+          <div class="ledger-main">
+            <div><h2>${escapeHTML(publication.name)}</h2><p>/${escapeHTML(publication.prefix)}/${publication.entry === "index.html" ? "" : escapeHTML(publication.entry)}</p></div>
+            <div class="ledger-description">${escapeHTML(publication.description)}</div>
+            <div class="ledger-actions">
+              <button class="ledger-action" data-inline="preview" data-id="${publication.id}">Preview</button>
+              <button class="ledger-action" data-inline="description" data-id="${publication.id}">Describe</button>
+              <button class="ledger-action" data-inline="move" data-id="${publication.id}">Move</button>
+              <button class="ledger-action delete" data-inline="delete" data-id="${publication.id}">Delete</button>
+            </div>
+          </div>
+          ${inlineWorkflow(publication)}
+        </article>`).join("");
+
+      root.innerHTML = `
+        <section class="c-shell">
+          <div class="c-top">
+            <div><p class="eyebrow">Action ledger</p><h1>Find a page, then act on it</h1><p class="subtle">Every destructive step stays next to the publication it affects.</p></div>
+            ${storageMarkup("c-storage")}
+          </div>
+          <input class="input command-input" data-search type="search" value="${escapeHTML(state.query)}" placeholder="Search by title, URL, or private description" aria-label="Search publications">
+          <div class="c-label-row"><span>${publications.length} publications</span><span>Actions</span></div>
+          <div class="ledger">${ledger || `<div class="empty-state">No publications match this search.</div>`}</div>
+          <div class="activity-line">${escapeHTML(state.lastEvent)}</div>
+        </section>`;
+    }
+
+    function render() {
+      if (!currentPublication() && state.publications.length) state.selectedId = state.publications[0].id;
+      if (state.variant === "A") renderVariantA();
+      if (state.variant === "B") renderVariantB();
+      if (state.variant === "C") renderVariantC();
+      bindPageEvents();
+      renderPrototypeChrome();
+    }
+
+    function renderPrototypeChrome() {
+      const variant = variants.find(item => item.key === state.variant);
+      document.getElementById("variant-label").textContent = `${variant.key} (${variant.name})`;
+      document.getElementById("state-summary").textContent = `Prototype state · ${state.publications.length} publications · ${formatBytes(storageUsed())}`;
+      stateOutput.textContent = JSON.stringify({
+        variant: state.variant,
+        publications: state.publications.map(publication => ({ id: publication.id, prefix: publication.prefix, entry: publication.entry, bytes: publication.bytes, privateDescription: publication.description })),
+        selectedId: state.selectedId,
+        query: state.query,
+        pendingAction: state.pendingAction,
+        storage: { usedBytes: storageUsed(), quotaBytes },
+        lastEvent: state.lastEvent
+      }, null, 2);
+    }
+
+    function bindPageEvents() {
+      root.querySelectorAll("[data-select]").forEach(element => {
+        const select = () => {
+          state.selectedId = element.dataset.select;
+          state.lastEvent = `Selected ${currentPublication().name}`;
+          render();
+        };
+        element.addEventListener("click", select);
+        element.addEventListener("keydown", event => {
+          if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); }
+        });
+      });
+
+      root.querySelectorAll("[data-action]").forEach(element => {
+        element.addEventListener("click", () => openAction(element.dataset.action, element.dataset.id));
+      });
+
+      root.querySelectorAll("[data-inline]").forEach(element => {
+        element.addEventListener("click", () => {
+          state.selectedId = element.dataset.id;
+          state.inlineAction = { type: element.dataset.inline, id: element.dataset.id };
+          state.lastEvent = `Started ${element.dataset.inline} for ${currentPublication().name}`;
+          render();
+        });
+      });
+
+      root.querySelectorAll("[data-inline-close]").forEach(element => {
+        element.addEventListener("click", () => { state.inlineAction = null; render(); });
+      });
+
+      root.querySelectorAll("[data-search]").forEach(input => {
+        input.addEventListener("input", event => {
+          const cursor = event.target.selectionStart;
+          state.query = event.target.value;
+          render();
+          const nextInput = root.querySelector("[data-search]");
+          nextInput?.focus();
+          nextInput?.setSelectionRange(cursor, cursor);
+        });
+      });
+    }
+
+    function dialogShell(title, subtitle, body) {
+      return `
+        <div class="dialog-head"><div><h2 id="dialog-title">${title}</h2><p>${subtitle}</p></div><button class="dialog-close" data-dialog-close type="button" aria-label="Close">×</button></div>
+        <div class="dialog-body">${body}</div>`;
+    }
+
+    function openAction(type, id) {
+      const publication = state.publications.find(item => item.id === id);
+      if (!publication) return;
+      state.selectedId = id;
+      state.pendingAction = { type, publicationId: id };
+      state.lastEvent = `Reviewing ${type} for ${publication.name}`;
+
+      if (type === "preview") {
+        dialogContent.innerHTML = dialogShell("Publication preview", publicPath(publication), `
+          <div class="preview-dialog-frame"><strong>${escapeHTML(publication.name)}</strong><span>Public page preview</span></div>
+          <div class="dialog-actions"><button class="button primary" data-dialog-close type="button">Done</button></div>`);
+      }
+
+      if (type === "description") {
+        dialogContent.innerHTML = dialogShell("Edit private description", "This note is visible only in Page Hub.", `
+          <form id="description-form">
+            <label class="field-label" for="description-value">Description</label>
+            <textarea class="textarea" id="description-value" maxlength="240">${escapeHTML(publication.description)}</textarea>
+            <div class="dialog-actions"><button class="button" data-dialog-close type="button">Cancel</button><button class="button primary" type="submit">Save description</button></div>
+          </form>`);
+      }
+
+      if (type === "move") {
+        const proposedPrefix = `${publication.prefix}-moved`;
+        dialogContent.innerHTML = dialogShell("Move publication", "Changing the path changes its public URL.", `
+          <form id="move-form">
+            <label class="field-label" for="move-prefix">New path</label>
+            <input class="input" id="move-prefix" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" value="${escapeHTML(proposedPrefix)}" required>
+            <div class="url-change"><div><span>Old URL will stop working</span><div class="old-url" id="move-old-url">${escapeHTML(publicPath(publication))}</div></div><div><span>New URL</span><div class="new-url" id="move-new-url">${escapeHTML(`https://share.bdgn.me/${proposedPrefix}/${publication.entry === "index.html" ? "" : publication.entry}`)}</div></div></div>
+            <div class="warning-box">Page Hub will move ${publication.entry === "index.html" ? "the stored page" : `<code>${escapeHTML(publication.entry)}</code>`}. It will not leave a redirect at the old URL.</div>
+            <label class="check-row"><input id="move-acknowledge" type="checkbox" required><span>I understand that links to the old URL will break.</span></label>
+            <div class="dialog-actions"><button class="button" data-dialog-close type="button">Cancel</button><button class="button primary" type="submit">Move publication</button></div>
+          </form>`);
+      }
+
+      if (type === "delete") {
+        dialogContent.innerHTML = dialogShell("Permanently delete publication", `Delete ${escapeHTML(publication.name)} and its stored page.`, `
+          <form id="delete-form">
+            <div class="danger-box">This removes <strong>${formatBytes(publication.bytes)}</strong> from storage and breaks <code>/${escapeHTML(publication.prefix)}/</code>. There is no trash or recovery.</div>
+            <label class="field-label" for="delete-confirmation">Type <code>${escapeHTML(publication.prefix)}</code> to confirm</label>
+            <input class="input" id="delete-confirmation" autocomplete="off" data-expected="${escapeHTML(publication.prefix)}" required>
+            <div class="dialog-actions"><button class="button" data-dialog-close type="button">Cancel</button><button class="button danger" id="delete-submit" type="submit" disabled>Delete forever</button></div>
+          </form>`);
+      }
+
+      bindDialogEvents(publication, type);
+      renderPrototypeChrome();
+      dialog.showModal();
+      const firstField = dialog.querySelector("textarea, input");
+      firstField?.focus();
+    }
+
+    function bindDialogEvents(publication, type) {
+      dialog.querySelectorAll("[data-dialog-close]").forEach(button => button.addEventListener("click", closeDialog));
+
+      if (type === "description") {
+        document.getElementById("description-form").addEventListener("submit", event => {
+          event.preventDefault();
+          publication.description = document.getElementById("description-value").value.trim() || "No private description.";
+          finishAction(`Updated private description for ${publication.name}`);
+        });
+      }
+
+      if (type === "move") {
+        const prefixInput = document.getElementById("move-prefix");
+        prefixInput.addEventListener("input", () => {
+          document.getElementById("move-new-url").textContent = `https://share.bdgn.me/${prefixInput.value}/${publication.entry === "index.html" ? "" : publication.entry}`;
+        });
+        document.getElementById("move-form").addEventListener("submit", event => {
+          event.preventDefault();
+          if (!event.currentTarget.reportValidity()) return;
+          const oldPrefix = publication.prefix;
+          publication.prefix = prefixInput.value;
+          finishAction(`Moved ${publication.name} from /${oldPrefix}/ to /${publication.prefix}/`);
+        });
+      }
+
+      if (type === "delete") {
+        const confirmation = document.getElementById("delete-confirmation");
+        const submit = document.getElementById("delete-submit");
+        confirmation.addEventListener("input", () => { submit.disabled = confirmation.value !== confirmation.dataset.expected; });
+        document.getElementById("delete-form").addEventListener("submit", event => {
+          event.preventDefault();
+          if (confirmation.value !== publication.prefix) return;
+          state.publications = state.publications.filter(item => item.id !== publication.id);
+          state.selectedId = state.publications[0]?.id || null;
+          finishAction(`Permanently deleted ${publication.name}`);
+        });
+      }
+    }
+
+    function closeDialog() {
+      state.pendingAction = null;
+      dialog.close();
+      renderPrototypeChrome();
+    }
+
+    function finishAction(message) {
+      state.lastEvent = message;
+      state.pendingAction = null;
+      state.inlineAction = null;
+      dialog.close();
+      showToast(message);
+      render();
+    }
+
+    function showToast(message) {
+      clearTimeout(toastTimer);
+      toast.textContent = message;
+      toast.classList.add("visible");
+      toastTimer = setTimeout(() => toast.classList.remove("visible"), 2600);
+    }
+
+    function changeVariant(direction) {
+      const currentIndex = variants.findIndex(item => item.key === state.variant);
+      const nextIndex = (currentIndex + direction + variants.length) % variants.length;
+      state.variant = variants[nextIndex].key;
+      state.inlineAction = null;
+      state.lastEvent = `Switched to variant ${state.variant}`;
+      const url = new URL(location.href);
+      url.searchParams.set("variant", state.variant);
+      history.replaceState({}, "", url);
+      render();
+    }
+
+    document.getElementById("variant-previous").addEventListener("click", () => changeVariant(-1));
+    document.getElementById("variant-next").addEventListener("click", () => changeVariant(1));
+    document.addEventListener("keydown", event => {
+      const target = event.target;
+      const editing = target.matches?.("input, textarea, [contenteditable]");
+      if (editing || dialog.open) return;
+      if (event.key === "ArrowLeft") changeVariant(-1);
+      if (event.key === "ArrowRight") changeVariant(1);
+    });
+    dialog.addEventListener("cancel", event => { event.preventDefault(); closeDialog(); });
+    dialog.addEventListener("click", event => {
+      const box = dialog.getBoundingClientRect();
+      const outside = event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom;
+      if (outside) closeDialog();
+    });
+
+    if (!requestedVariant || requestedVariant !== state.variant) {
+      const url = new URL(location.href);
+      url.searchParams.set("variant", state.variant);
+      history.replaceState({}, "", url);
+    }
+    render();
+  </script>
+</body>
+</html>
