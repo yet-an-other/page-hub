@@ -121,7 +121,7 @@
     .meter { height: 7px; overflow: hidden; border-radius: 999px; background: #e5e9e5; }
     .meter > span { display: block; width: max(0.08%, 3px); height: 100%; border-radius: inherit; background: var(--accent); }
 
-    /* Variant A: dense inventory and a detail drawer. */
+    /* Variant A: grouped inventory with row actions. */
     .a-shell { max-width: 1320px; margin: 0 auto; padding: 43px 32px; }
     .a-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 26px; }
     .a-storage { width: 255px; padding: 15px 17px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
@@ -130,13 +130,11 @@
     .search-wrap::before { content: "⌕"; position: absolute; left: 12px; top: 8px; color: var(--muted); font-size: 20px; }
     .search-wrap .input { padding-left: 37px; }
     .count-label { margin-left: auto; color: var(--muted); font-size: 13px; }
-    .a-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 320px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--panel); box-shadow: 0 8px 30px rgba(36, 48, 43, 0.05); }
+    .a-workspace { border: 1px solid var(--line); border-radius: 14px; overflow: visible; background: var(--panel); box-shadow: 0 8px 30px rgba(36, 48, 43, 0.05); }
     .publication-table { width: 100%; border-collapse: collapse; }
     .publication-table th { padding: 12px 15px; color: var(--muted); background: #f7f8f6; font-size: 11px; letter-spacing: 0.06em; text-align: left; text-transform: uppercase; }
     .publication-table td { padding: 13px 15px; border-top: 1px solid #edf0ed; font-size: 13px; vertical-align: middle; }
-    .publication-table .publication-row { cursor: pointer; }
     .publication-table .publication-row:hover { background: #f8fbf9; }
-    .publication-table .publication-row.selected { background: var(--accent-soft); }
     .project-row td { padding: 10px 15px; border-top: 1px solid #d6ddd8; background: #f1f4f1; }
     .project-row:first-child td { border-top: 0; }
     .project-heading { display: flex; align-items: center; gap: 10px; }
@@ -152,11 +150,22 @@
     .project-meta { color: var(--muted); font-size: 11px; white-space: nowrap; }
     .project-edit-icon, .open-publication-icon { width: 31px; height: 31px; display: inline-grid; place-items: center; padding: 0; border: 1px solid #cbd2cd; border-radius: 8px; color: #45514b; background: #fff; font-size: 14px; }
     .project-edit-icon:hover, .open-publication-icon:hover { color: var(--accent); border-color: #86928c; background: #f8fbf9; }
-    .open-cell { width: 48px; text-align: center; }
+    .row-actions-cell { width: 90px; }
+    .row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+    .row-menu { position: relative; }
+    .row-menu[open] { z-index: 10; }
+    .row-menu summary { width: 31px; height: 31px; display: grid; place-items: center; border: 1px solid #cbd2cd; border-radius: 8px; color: #45514b; background: #fff; cursor: pointer; font-size: 17px; font-weight: 750; line-height: 1; list-style: none; }
+    .row-menu summary::-webkit-details-marker { display: none; }
+    .row-menu summary:hover { color: var(--accent); border-color: #86928c; background: #f8fbf9; }
+    .row-menu-panel { position: absolute; top: 36px; right: 0; width: 175px; padding: 5px; border: 1px solid #cbd2cd; border-radius: 10px; background: #fff; box-shadow: 0 12px 32px rgba(20, 32, 27, 0.18); }
+    .row-menu-panel button { width: 100%; display: block; padding: 9px 10px; border: 0; border-radius: 7px; color: var(--ink); background: transparent; text-align: left; font-size: 13px; }
+    .row-menu-panel button:hover { background: #f0f4f1; }
+    .row-menu-panel button.danger { color: var(--danger); }
+    .row-menu-panel button.danger:hover { background: var(--danger-soft); }
     .publication-name { display: block; margin-bottom: 2px; padding-left: 14px; font-weight: 740; }
     .publication-url { color: var(--muted); font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; }
     .publication-name + .publication-url { padding-left: 14px; }
-    .publication-preview-link { display: block; padding-top: 0; padding-right: 0; padding-bottom: 0; border: 0; background: transparent; text-align: left; text-decoration: underline; text-decoration-color: #b8c1bb; text-underline-offset: 2px; }
+    .publication-preview-link { width: 100%; display: block; padding-top: 0; padding-right: 0; padding-bottom: 0; overflow: hidden; border: 0; background: transparent; text-align: left; text-decoration: underline; text-decoration-color: #b8c1bb; text-overflow: ellipsis; text-underline-offset: 2px; white-space: nowrap; }
     .publication-preview-link:hover { color: var(--accent); text-decoration-color: currentColor; }
     .description-cell { max-width: 230px; color: #4e5853; }
     .type-pill { display: inline-flex; padding: 4px 7px; border-radius: 999px; background: #eef1ee; color: #53605a; font-size: 11px; white-space: nowrap; }
@@ -312,7 +321,9 @@
       .a-shell, .c-shell { padding: 28px 16px 180px; }
       .a-heading, .c-top { display: block; }
       .a-storage, .c-storage { width: 100%; margin-top: 20px; }
+      .publication-table { table-layout: fixed; }
       .publication-table th:nth-child(2), .publication-table td:nth-child(2), .publication-table th:nth-child(3), .publication-table td:nth-child(3), .publication-table th:nth-child(4), .publication-table td:nth-child(4) { display: none; }
+      .publication-table th:last-child { width: 90px; }
       .project-row td { display: table-cell !important; }
       .project-heading { align-items: start; flex-wrap: wrap; }
       .project-toggle { align-items: start; }
@@ -496,17 +507,25 @@
     function renderVariantA() {
       const groups = visibleProjectGroups();
       const publications = groups.flatMap(group => group.publications);
-      const selected = currentPublication();
-      const selectedProject = currentProject();
       const tables = groups.map(({ project, publications: projectPublications }) => {
         const collapsed = state.collapsedProjectIds.includes(project.id) && !state.query.trim();
         const rows = projectPublications.map(publication => `
-          <tr class="publication-row ${publication.id === state.selectedId ? "selected" : ""}" data-select="${publication.id}" tabindex="0">
+          <tr class="publication-row">
             <td><span class="publication-name">${escapeHTML(publication.name)}</span><button class="publication-url publication-preview-link" data-action="preview" data-id="${publication.id}" type="button" aria-label="Preview ${escapeHTML(publication.name)}" title="Preview in Page Hub">/${escapeHTML(project.prefix)}/${escapeHTML(publication.path)}/${publication.entry === "index.html" ? "" : escapeHTML(publication.entry)}</button></td>
             <td class="description-cell">${publication.description ? escapeHTML(publication.description) : `<span class="subtle">No publication description</span>`}</td>
             <td>${escapeHTML(publication.updated)}</td>
             <td>${formatBytes(publication.bytes)}</td>
-            <td class="open-cell"><a class="open-publication-icon" data-open-publication href="${escapeHTML(publicPath(publication))}" target="_blank" rel="noopener noreferrer" aria-label="Open ${escapeHTML(publication.name)} public page" title="Open public page">↗</a></td>
+            <td class="row-actions-cell"><div class="row-actions">
+              <a class="open-publication-icon" data-open-publication href="${escapeHTML(publicPath(publication))}" target="_blank" rel="noopener noreferrer" aria-label="Open ${escapeHTML(publication.name)} public page" title="Open public page">↗</a>
+              <details class="row-menu">
+                <summary aria-label="Actions for ${escapeHTML(publication.name)}" title="Publication actions">⋯</summary>
+                <div class="row-menu-panel">
+                  <button data-action="description" data-id="${publication.id}" type="button">Edit description</button>
+                  <button data-action="move" data-id="${publication.id}" type="button">Move publication</button>
+                  <button class="danger" data-action="delete" data-id="${publication.id}" type="button">Delete publication</button>
+                </div>
+              </details>
+            </div></td>
           </tr>`).join("");
         const description = project.description
           ? `<span class="project-description">${escapeHTML(project.description)}</span>`
@@ -541,26 +560,6 @@
                 ${tables}
               </table>` : `<div class="empty-state">No projects or publications match this search.</div>`}
             </div>
-            <aside class="a-detail">
-              ${selected && selectedProject ? `
-                <p class="detail-breadcrumb">${escapeHTML(selectedProject.name)} project</p>
-                <h2>${escapeHTML(selected.name)}</h2>
-                <p class="detail-url">${escapeHTML(publicPath(selected))}</p>
-                <dl class="detail-block">
-                  <dt>Publication description · private</dt><dd>${selected.description ? escapeHTML(selected.description) : `<span class="subtle">No publication description</span>`}</dd>
-                </dl>
-                <dl class="detail-block">
-                  <dt>Project description · private</dt><dd>${selectedProject.description ? escapeHTML(selectedProject.description) : `<span class="subtle">No project description</span>`}</dd>
-                </dl>
-                <dl class="detail-block">
-                  <dt>Stored object</dt><dd><code>${escapeHTML(objectKey(selected))}</code><br>${formatBytes(selected.bytes)} · updated ${escapeHTML(selected.updated)}</dd>
-                </dl>
-                <div class="detail-actions">
-                  <button class="button" data-action="description" data-id="${selected.id}">Edit publication</button>
-                  <button class="button" data-action="move" data-id="${selected.id}">Move</button>
-                  <button class="button danger" data-action="delete" data-id="${selected.id}">Delete</button>
-                </div>` : `<p class="subtle">No publications remain.</p>`}
-            </aside>
           </div>
         </section>`;
     }
@@ -703,6 +702,7 @@
       root.querySelectorAll("[data-action]").forEach(element => {
         element.addEventListener("click", event => {
           event.stopPropagation();
+          element.closest(".row-menu")?.removeAttribute("open");
           openAction(element.dataset.action, element.dataset.id);
         });
       });
