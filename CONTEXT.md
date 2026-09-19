@@ -12,6 +12,14 @@ _Avoid_: Using Project as a synonym for Publication
 A public item managed as one unit within a Project. It may contain one file or a complete static site and may have its own private description.
 _Avoid_: Project, artifact
 
+**Root Publication**:
+A Publication located directly at its Project's top-level path rather than beneath a Publication path.
+_Avoid_: Project
+
 **Adoption candidate**:
 A storage layout that Page Hub has discovered but has not accepted as a Publication. It remains unmanaged until Page Hub validates and accepts it.
 _Avoid_: Publication
+
+**Drift**:
+A difference between a Publication's accepted state and its objects as observed in storage. Drift does not change accepted state by itself.
+_Avoid_: Update, accepted change
