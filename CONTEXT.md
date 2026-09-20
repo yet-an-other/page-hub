@@ -20,6 +20,10 @@ _Avoid_: Project
 A storage layout that Page Hub has discovered but has not accepted as a Publication. It remains unmanaged until Page Hub validates and accepts it.
 _Avoid_: Publication
 
+**Replacement**:
+A content change that treats the submitted file or directory as a Publication's complete desired contents. It preserves the Publication's location, entry point, and routing behavior.
+_Avoid_: Update, sync, merge
+
 **Drift**:
 A difference between a Publication's accepted state and its objects as observed in storage. Drift does not change accepted state by itself.
 _Avoid_: Update, accepted change

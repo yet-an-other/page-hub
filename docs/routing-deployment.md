@@ -27,7 +27,7 @@ public Cloudflare DNS
 | SNI routing | Bastion nginx passes TLS through by SNI. [`vm-bastion/templates/nginx.conf.j2`](https://github.com/yet-an-other/homelab/blob/329775e85a4e9333972bbcf2455038d90eea96f2/vm-bastion/templates/nginx.conf.j2#L79-L134) maps `share.bdgn.me` to the `s3-node` upstream. | Edit the template and run `./apply.sh vm-bastion` only if the hostname or destination host changes. Page Hub does not need that change. |
 | TLS and HTTP routing | `s3-node` nginx terminates TLS. [`vm-s3/share.conf`](https://github.com/yet-an-other/homelab/blob/329775e85a4e9333972bbcf2455038d90eea96f2/vm-s3/share.conf#L39-L136) owns the `share.bdgn.me` vhost and its catch-all public reader. | Edit `vm-s3/share.conf`, extend [`vm-s3/create-vm-s3.yaml`](https://github.com/yet-an-other/homelab/blob/329775e85a4e9333972bbcf2455038d90eea96f2/vm-s3/create-vm-s3.yaml#L385-L416), then run `./apply.sh vm-s3`. |
 | Certificate | The same `vm-s3` play requests one Let's Encrypt certificate covering `s3-node.bdgn.me`, `s3.bdgn.me`, and `share.bdgn.me`. [`ansible/add-ssl-certificate.yaml`](https://github.com/yet-an-other/homelab/blob/329775e85a4e9333972bbcf2455038d90eea96f2/ansible/add-ssl-certificate.yaml#L55-L88) uses `acme.sh` with Cloudflare DNS-01 credentials from the private inventory. | The existing certificate and renewal path already cover Page Hub at `share.bdgn.me`. Add a name to the `sites` argument and rerun the play only if the hostname changes. |
-| Public reader and storage | `s3-node` nginx proxies GET and HEAD to loopback RadosGW. The bucket grants anonymous `GetObject` only from loopback. [`vm-s3/create-vm-s3.yaml`](https://github.com/yet-an-other/homelab/blob/329775e85a4e9333972bbcf2455038d90eea96f2/vm-s3/create-vm-s3.yaml#L217-L405) owns the RGW user, bucket policy, quota, and nginx deployment. | Keep the public reader as its own nginx locations. Page Hub may call the internal S3 endpoint with server-held credentials. Do not send those credentials to browser code. |
+| Public reader and storage | `s3-node` nginx proxies GET and HEAD to loopback RadosGW. The bucket grants anonymous `GetObject` only from loopback. [`vm-s3/create-vm-s3.yaml`](https://github.com/yet-an-other/homelab/blob/329775e85a4e9333972bbcf2455038d90eea96f2/vm-s3/create-vm-s3.yaml#L217-L405) owns the RGW user, bucket policy, quota, and nginx deployment. | Keep the public reader as its own nginx locations. Page Hub may call the internal S3 endpoint with server-held credentials. Do not send those credentials to browser or publishing client code. |
 | Existing identity system | The homelab runs ZITADEL at the internal `sso.bdgn.me` name. Bastion already has a reviewed nginx plus oauth2-proxy pattern with an exact-email allowlist. See [ADR-0004](https://github.com/yet-an-other/homelab/blob/329775e85a4e9333972bbcf2455038d90eea96f2/docs/adr/0004-bastion-panel-authentication-via-zitadel.md), the [oauth2-proxy config](https://github.com/yet-an-other/homelab/blob/329775e85a4e9333972bbcf2455038d90eea96f2/vm-bastion/templates/xform-oauth2-proxy.cfg.j2), and the [nginx gateway](https://github.com/yet-an-other/homelab/blob/329775e85a4e9333972bbcf2455038d90eea96f2/vm-bastion/templates/fallback.conf.j2). | Reuse is possible, but not automatic. Page Hub needs its own OIDC client, callback, cookie secret, exact operator allowlist, service unit, and path-specific nginx rules. The IdP is internal, so sign-in requires LAN or VPN access. |
 
 ## Deployment choices available to the runtime decision
@@ -50,18 +50,20 @@ This is deployable but unnecessary. It would turn the current layer-4 SNI router
 
 ## Route and authentication constraints
 
-The current `location /` is a public GET and HEAD catch-all. It performs directory-index and Project-root fallback. Page Hub must add higher-priority locations for the exact manager page, manager assets, management API, auth callback, and sign-out paths.
+The current `location /` is a public GET and HEAD catch-all. It performs directory-index and Project-root fallback. Page Hub must add higher-priority locations for the exact manager page, manager assets, browser management API, token-authenticated publishing API, auth callback, and sign-out paths.
 
 Those locations need these properties:
 
 - nginx selects them before `location /`;
-- every manager document and API request requires the configured operator;
-- API authentication failures stay API responses rather than HTML sign-in pages where appropriate;
-- upstream failure returns an authenticated manager error and never enters Publication fallback;
+- every manager document and browser API request requires the configured operator;
+- every publishing API request requires a scoped Page Hub bearer token;
+- API authentication failures stay JSON responses rather than HTML sign-in pages;
+- upstream failure returns a manager error and never enters Publication fallback;
 - state-changing methods are accepted only on Page Hub routes;
-- cookies use secure, HTTP-only, and intentional SameSite settings;
+- browser cookies use secure, HTTP-only, and intentional SameSite settings;
 - private responses use `Cache-Control: no-store` or another explicit private policy;
-- the router strips client-supplied identity and forwarding headers before trusting gateway assertions;
+- browser routes strip client-supplied authorization and identity headers before trusting gateway assertions;
+- publishing routes strip cookies and identity headers, then forward the bearer token only to Page Hub through the protected Unix socket;
 - Page Hub rejects Project paths that collide with the reserved route set; and
 - the public Publication locations keep their current anonymous behavior.
 
