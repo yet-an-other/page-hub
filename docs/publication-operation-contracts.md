@@ -1,6 +1,6 @@
 # Publication operation contracts
 
-This document defines the first-release behavior for listing, previewing, describing, moving, and permanently deleting Publications. The catalog remains the authority for managed state. Storage observations can reveal drift, but they do not alter accepted state by themselves.
+This document defines the first-release behavior for listing, previewing, describing, moving, and permanently deleting Publications. The catalog remains the authority for managed state. Storage observations can reveal drift, but they do not alter accepted state by themselves. The [legacy adoption and publishing cutover](legacy-adoption-and-publishing-cutover.md) contract defines reconciliation choices and write locks.
 
 ## Shared rules
 

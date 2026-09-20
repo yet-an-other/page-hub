@@ -112,10 +112,10 @@ Changing the canonical origin, reserved paths, or storage bucket is a migration.
 5. Configure browser authentication, publishing-token routing, and the ordered route rules on a non-public or temporary origin.
 6. Verify manager isolation, publishing-token scopes, and public Publication behavior.
 7. Point public DNS at the tested TLS entry point.
-8. Adopt existing Publications without changing their objects or URLs.
-9. Issue the publishing client token and move mutation clients to Page Hub only after the management path is healthy.
+8. Follow the [legacy adoption and publishing cutover](legacy-adoption-and-publishing-cutover.md) plan to freeze writes, adopt existing Publications without storage changes, and verify their public behavior.
+9. Issue the publishing client token, move every mutation client to Page Hub, revoke the legacy storage credential, and complete a final reconciliation before resuming publishing.
 
-Rollback must leave the public reader and Publication objects in place. Roll back the Page Hub runtime and route changes together when their contracts differ. Restore the catalog only through a documented recovery procedure, then reconcile it with observed storage before accepting more mutations.
+Rollback must leave the public reader and Publication objects in place. Roll back the Page Hub runtime and route changes together when their contracts differ. Restore the catalog only through a documented recovery procedure, then reconcile it with observed storage before accepting more mutations. After publishing has cut over, rollback must not restore routine direct storage writes.
 
 ## Deployment checks
 

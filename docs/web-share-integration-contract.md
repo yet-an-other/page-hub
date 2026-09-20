@@ -1,6 +1,6 @@
 # `web-share` integration contract
 
-This document defines how the `web-share` skill creates and replaces Publications through Page Hub. Page Hub is the sole authority for accepting these changes. The skill and client may reject work earlier, but Page Hub repeats every objective check before it changes storage.
+This document defines how the `web-share` skill creates and replaces Publications through Page Hub. Page Hub is the sole authority for accepting these changes. The skill and client may reject work earlier, but Page Hub repeats every objective check before it changes storage. The [legacy adoption and publishing cutover](legacy-adoption-and-publishing-cutover.md) contract defines when the skill switches to this interface and when its old storage credential is revoked.
 
 The first release supports one-file Publications and complete static-site directories. It proxies upload bytes through Page Hub. It does not issue storage credentials or fall back to direct S3 writes when Page Hub is unavailable.
 
