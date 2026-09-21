@@ -1,0 +1,31 @@
+{
+  "name": "page-hub-manager",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.12.2",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "generate:openapi": "openapi-typescript ../openapi/page-hub.yaml -o src/api/generated.ts",
+    "verify:openapi": "pnpm generate:openapi && git diff --exit-code -- src/api/generated.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "node scripts/lint.mjs"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.62.8",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "openapi-typescript": "7.13.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.16",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  }
+}

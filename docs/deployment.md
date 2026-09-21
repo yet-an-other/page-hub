@@ -137,6 +137,14 @@ Run these checks before directing production traffic to a release:
 - Logs and health responses contain no credentials, session material, private descriptions, or object contents.
 - The latest catalog backup can be restored in an isolated environment.
 
+## First-checkpoint example
+
+The portable binary, protected Unix-socket service, nginx route ordering, and
+post-deploy checks for the first implementation checkpoint are collected in
+[`first-checkpoint-deployment.md`](first-checkpoint-deployment.md). It uses only
+placeholders; concrete host, identity-provider, secret, and bucket values belong
+to the private deployment environment.
+
 ## Environment-specific documentation
 
 Each deployment should keep a private runbook that records:

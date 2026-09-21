@@ -1,0 +1,83 @@
+openapi: 3.1.0
+info:
+  title: Page Hub manager browser API
+  version: 1.0.0
+paths:
+  /_page-hub/api/v1/status:
+    get:
+      operationId: getManagerStatus
+      responses:
+        '200':
+          description: Current manager and storage status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagerStatus'
+        '401':
+          description: Trusted gateway assertion missing or invalid.
+  /_page-hub/healthz:
+    get:
+      operationId: getHealth
+      responses:
+        '200':
+          description: Process is serving requests.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '401':
+          description: Trusted gateway assertion missing or invalid.
+  /_page-hub/readyz:
+    get:
+      operationId: getReadiness
+      responses:
+        '200':
+          description: Manager and bucket are reachable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessStatus'
+        '401':
+          description: Trusted gateway assertion missing or invalid.
+        '503':
+          description: Manager is serving but storage is unavailable or misconfigured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessStatus'
+components:
+  schemas:
+    StorageStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [reachable, unavailable, misconfigured]
+    ManagerStatus:
+      type: object
+      required: [version, storage]
+      properties:
+        version:
+          type: string
+        storage:
+          $ref: '#/components/schemas/StorageStatus'
+    HealthStatus:
+      type: object
+      required: [status, version]
+      properties:
+        status:
+          type: string
+          const: ok
+        version:
+          type: string
+    ReadinessStatus:
+      type: object
+      required: [status, storage]
+      properties:
+        status:
+          type: string
+          enum: [ready, degraded]
+        storage:
+          type: string
+          enum: [reachable, unavailable, misconfigured]

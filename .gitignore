@@ -144,3 +144,11 @@ vite.config.ts.timestamp-*
 
 # Pi settings
 .pi/
+
+# Playwright output
+playwright-report/
+test-results/
+
+# The Go binary embeds the compiled manager assets.
+!web/dist/
+!web/dist/**
