@@ -233,7 +233,8 @@ Also verify that an invalid assertion is rejected, a manager asset is served onl
 under `/_page-hub/`, the configured bucket reports `reachable` in the manager, and
 stopping Page Hub leaves the known public Publication URL available. The
 inventory API returns the cataloged Projects and Publications; an empty catalog
-returns an empty list, not an error.
+returns an empty list, not an error. A storage outage should report `unavailable`
+or `misconfigured`, never bucket contents.
 
 ## Adopting the first declared Publication
 
@@ -265,6 +266,4 @@ Commit rechecks the candidate against storage immediately before its single
 catalog transaction: any changed byte, metadata value, or key set rejects the
 commit without accepting anything. A committed Publication appears in the
 manager inventory and survives a restart. Re-running `commit` with the same
-operation ID and plan returns the recorded result instead of duplicating it. A storage
-outage should report `unavailable` or `misconfigured`, never zero usage or bucket
-contents.
+operation ID and plan returns the recorded result instead of duplicating it.

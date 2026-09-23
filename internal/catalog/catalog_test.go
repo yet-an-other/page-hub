@@ -144,7 +144,7 @@ func TestAdoptCommitAndRestartPreservesState(t *testing.T) {
 		OperationID: NewID(),
 		RequestHash: "request-hash-1",
 		PlanDigest:  "sha256:plan-digest-1",
-		Publication: AdoptPublication{
+		Publication: AdoptedPublication{
 			ProjectPrefix:    "notes",
 			ProjectDisplay:   "Notes",
 			PublicationPath:  "notes/2026-report",
@@ -218,7 +218,7 @@ func TestCommitAdoptionIsAtomic(t *testing.T) {
 	// and leave no project, publication, or manifest behind.
 	seedInput := CommitAdoptionInput{
 		OperationID: "op-1", RequestHash: "seed", PlanDigest: "sha256:seed",
-		Publication: AdoptPublication{
+		Publication: AdoptedPublication{
 			ProjectPrefix: "seeded", ProjectDisplay: "Seeded", PublicationPath: "seeded/site",
 			EntryPoint: "seeded/site/index.html", RoutingMode: "fallback",
 			ContentChangedAt: "2026-01-01T00:00:00Z",
@@ -271,7 +271,7 @@ func TestCommitAdoptionRejectsExistingPaths(t *testing.T) {
 	store := openStore(t, path)
 	base := CommitAdoptionInput{
 		OperationID: "op-a", RequestHash: "h", PlanDigest: "sha256:d",
-		Publication: AdoptPublication{
+		Publication: AdoptedPublication{
 			ProjectPrefix: "docs", ProjectDisplay: "Docs", PublicationPath: "docs/handbook",
 			EntryPoint: "docs/handbook/index.html", RoutingMode: "directory_index",
 			ContentChangedAt: "2026-01-01T00:00:00Z",
@@ -309,7 +309,7 @@ func TestInventoryIncludesEmptyProjectsAndSortsCaseInsensitively(t *testing.T) {
 		}
 		_, err := store.CommitAdoption(CommitAdoptionInput{
 			OperationID: operationID, RequestHash: operationID, PlanDigest: "sha256:" + operationID,
-			Publication: AdoptPublication{
+			Publication: AdoptedPublication{
 				ProjectPrefix: prefix, ProjectDisplay: display, PublicationPath: publicationPath,
 				DisplayName: pubDisplay, EntryPoint: publicationPath + "/index.html",
 				RoutingMode: "directory_index", ContentChangedAt: "2026-01-01T00:00:00Z",

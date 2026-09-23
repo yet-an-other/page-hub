@@ -82,7 +82,6 @@ func printVersion() {
 // runServe starts the manager. The runtime never migrates; it refuses an
 // incompatible, partially applied, or unmigrated catalog schema.
 func runServe(args []string) {
-	_ = flag.CommandLine
 	cfg, err := config.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "page-hub configuration error: %v\n", err)
@@ -257,19 +256,5 @@ func writePlan(encoded []byte, outputPath string) error {
 }
 
 func storageConfigFromEnv() storage.Config {
-	return storage.Config{
-		Endpoint:        os.Getenv("PAGE_HUB_S3_ENDPOINT"),
-		Region:          envOr("PAGE_HUB_S3_REGION", config.DefaultStorageRegion),
-		Bucket:          os.Getenv("PAGE_HUB_S3_BUCKET"),
-		AccessKeyID:     os.Getenv("PAGE_HUB_S3_ACCESS_KEY_ID"),
-		SecretAccessKey: os.Getenv("PAGE_HUB_S3_SECRET_ACCESS_KEY"),
-		SessionToken:    os.Getenv("PAGE_HUB_S3_SESSION_TOKEN"),
-	}
-}
-
-func envOr(name, fallback string) string {
-	if value := os.Getenv(name); value != "" {
-		return value
-	}
-	return fallback
+	return config.StorageFromEnv()
 }

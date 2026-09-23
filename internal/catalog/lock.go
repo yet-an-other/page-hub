@@ -29,17 +29,18 @@ func acquireFlock(lockPath string) (*Lock, error) {
 	return &Lock{file: file}, nil
 }
 
-// Release removes the in-process marker and the lock file, then drops the
-// advisory lock.
+// Release removes the lock file while still holding the lock, then drops it.
+// Unlinking first prevents a waiter from acquiring the now-orphaned inode and
+// briefly sharing the catalog with a fresh lock file created afterwards.
 func (l *Lock) Release() {
 	if l == nil || l.file == nil {
 		return
 	}
 	path := l.file.Name()
+	_ = os.Remove(path)
 	_ = syscall.Flock(int(l.file.Fd()), syscall.LOCK_UN)
 	_ = l.file.Close()
 	l.file = nil
-	_ = os.Remove(path)
 }
 
 func mkdirAll(dir string) error {

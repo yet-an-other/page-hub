@@ -36,6 +36,20 @@ type Config struct {
 	Storage storage.Config
 }
 
+// StorageFromEnv builds the S3-compatible connection from the standard
+// PAGE_HUB_S3_* environment variables. Administrative subcommands use this so
+// they never need manager runtime settings such as the browser assertion.
+func StorageFromEnv() storage.Config {
+	return storage.Config{
+		Endpoint:        os.Getenv("PAGE_HUB_S3_ENDPOINT"),
+		Region:          envOr("PAGE_HUB_S3_REGION", DefaultStorageRegion),
+		Bucket:          os.Getenv("PAGE_HUB_S3_BUCKET"),
+		AccessKeyID:     os.Getenv("PAGE_HUB_S3_ACCESS_KEY_ID"),
+		SecretAccessKey: os.Getenv("PAGE_HUB_S3_SECRET_ACCESS_KEY"),
+		SessionToken:    os.Getenv("PAGE_HUB_S3_SESSION_TOKEN"),
+	}
+}
+
 // Load reads the process environment and validates settings that are unsafe to
 // accept at runtime. A missing storage endpoint or bucket is intentionally
 // represented as a misconfigured storage status rather than a startup panic so

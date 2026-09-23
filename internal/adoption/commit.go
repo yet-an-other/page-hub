@@ -88,7 +88,7 @@ func Commit(ctx context.Context, reader storage.Reader, approved Plan, operation
 		OperationID: operationID,
 		RequestHash: requestHash,
 		PlanDigest:  approved.Digest,
-		Publication: catalog.AdoptPublication{
+		Publication: catalog.AdoptedPublication{
 			ProjectPrefix:    planned.Project.Prefix,
 			ProjectDisplay:   displayNameOr(planned),
 			PublicationPath:  planned.Path,

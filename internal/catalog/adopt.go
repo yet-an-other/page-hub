@@ -21,8 +21,8 @@ type AdoptedObject struct {
 	SHA256          string            `json:"sha256"`
 }
 
-// AdoptPublication is one declared Publication accepted into the catalog.
-type AdoptPublication struct {
+// AdoptedPublication is one declared Publication accepted into the catalog.
+type AdoptedPublication struct {
 	ProjectPrefix    string
 	ProjectDisplay   string
 	PublicationPath  string
@@ -40,7 +40,7 @@ type CommitAdoptionInput struct {
 	OperationID string
 	RequestHash string
 	PlanDigest  string
-	Publication AdoptPublication
+	Publication AdoptedPublication
 }
 
 // AdoptionResult is the durable result of an adoption operation. It is stored

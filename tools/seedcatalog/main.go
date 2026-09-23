@@ -48,7 +48,7 @@ func main() {
 		OperationID: "00000000-0000-4000-8000-000000000001",
 		RequestHash: "seed-fixture",
 		PlanDigest:  "sha256:seed-fixture",
-		Publication: catalog.AdoptPublication{
+		Publication: catalog.AdoptedPublication{
 			ProjectPrefix:    "notes",
 			ProjectDisplay:   "Notes",
 			Description:      "Adopted project notes",

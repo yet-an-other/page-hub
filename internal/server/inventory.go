@@ -24,7 +24,7 @@ func (s *Server) serveInventory(response http.ResponseWriter, request *http.Requ
 	if err != nil {
 		// The failure detail may contain catalog internals; the browser only
 		// learns that the inventory is unavailable.
-		writeJSON(response, request, http.StatusInternalServerError, map[string]string{"error": "inventory unavailable"})
+		writeJSON(response, request, http.StatusServiceUnavailable, map[string]string{"error": "inventory unavailable"})
 		return
 	}
 	if projects == nil {

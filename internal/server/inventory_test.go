@@ -87,8 +87,8 @@ func TestInventoryFailureDoesNotLeakCatalogDetails(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/_page-hub/api/v1/inventory", nil)
 	request.Header.Set("X-Page-Hub-Assertion", "test-only-assertion")
 	app.Handler().ServeHTTP(recorder, request)
-	if recorder.Code != http.StatusInternalServerError {
-		t.Fatalf("inventory failure status = %d, want 500", recorder.Code)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("inventory failure status = %d, want 503", recorder.Code)
 	}
 	if body := recorder.Body.String(); body == "" || strings.Contains(body, "secret-path") || strings.Contains(body, "private detail") {
 		t.Fatalf("inventory failure leaked internals: %s", body)
