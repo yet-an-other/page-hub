@@ -20,6 +20,7 @@ func TestDevelopmentBypassRequiresLoopbackListener(t *testing.T) {
 				ListenAddr:          test.listenAddr,
 				DevAuthBypass:       true,
 				AuthAssertionHeader: "X-Page-Hub-Assertion",
+				CatalogPath:         "/var/lib/page-hub/catalog.db",
 			}
 			if err := cfg.Validate(); (err != nil) != test.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, test.wantErr)
@@ -32,6 +33,7 @@ func TestProductionRequiresAnAssertion(t *testing.T) {
 	cfg := Config{
 		ListenAddr:          "127.0.0.1:8080",
 		AuthAssertionHeader: "X-Page-Hub-Assertion",
+		CatalogPath:         "/var/lib/page-hub/catalog.db",
 	}
 	if err := cfg.Validate(); err == nil {
 		t.Fatal("Validate() succeeded without a production assertion")
@@ -43,8 +45,20 @@ func TestProductionAcceptsConfiguredAssertion(t *testing.T) {
 		ListenAddr:          "127.0.0.1:8080",
 		AuthAssertionHeader: "X-Page-Hub-Assertion",
 		AuthAssertionValue:  "configured-value",
+		CatalogPath:         "/var/lib/page-hub/catalog.db",
 	}
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("Validate() error = %v", err)
+	}
+}
+
+func TestProductionRequiresACatalogPath(t *testing.T) {
+	cfg := Config{
+		ListenAddr:          "127.0.0.1:8080",
+		AuthAssertionHeader: "X-Page-Hub-Assertion",
+		AuthAssertionValue:  "configured-value",
+	}
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("Validate() succeeded without a catalog path")
 	}
 }

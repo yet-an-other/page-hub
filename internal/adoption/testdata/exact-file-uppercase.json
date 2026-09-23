@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "publications": [
+    {
+      "project": {
+        "prefix": "docs"
+      },
+      "path": "docs/Annual-Report.TXT",
+      "entryPoint": "docs/Annual-Report.TXT",
+      "routingMode": "exact_file",
+      "objects": [
+        "docs/Annual-Report.TXT"
+      ]
+    }
+  ]
+}

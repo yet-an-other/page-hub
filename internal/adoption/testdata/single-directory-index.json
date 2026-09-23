@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "publications": [
+    {
+      "project": {
+        "prefix": "guides",
+        "displayName": "Guides"
+      },
+      "path": "guides/getting-started",
+      "displayName": "Getting Started",
+      "entryPoint": "guides/getting-started/index.html",
+      "routingMode": "directory_index",
+      "objects": [
+        "guides/getting-started/index.html",
+        "guides/getting-started/app.js"
+      ]
+    }
+  ]
+}

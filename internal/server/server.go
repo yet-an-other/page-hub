@@ -26,15 +26,18 @@ const (
 )
 
 type Server struct {
-	config  config.Config
-	checker storage.Checker
-	assets  fs.FS
-	public  http.Handler
+	config    config.Config
+	checker   storage.Checker
+	inventory InventoryReader
+	assets    fs.FS
+	public    http.Handler
 }
 
 // New creates the manager HTTP handler. The public handler is only considered
 // for non-reserved paths and may be nil when the public reader lives elsewhere.
-func New(cfg config.Config, checker storage.Checker, public http.Handler) (*Server, error) {
+// The inventory reader may be nil only when the catalog is absent, in which
+// case the inventory API reports itself unavailable.
+func New(cfg config.Config, checker storage.Checker, inventory InventoryReader, public http.Handler) (*Server, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -45,7 +48,7 @@ func New(cfg config.Config, checker storage.Checker, public http.Handler) (*Serv
 	if err != nil {
 		return nil, err
 	}
-	return &Server{config: cfg, checker: checker, assets: assets, public: public}, nil
+	return &Server{config: cfg, checker: checker, inventory: inventory, assets: assets, public: public}, nil
 }
 
 // Handler returns the complete manager/public routing boundary.
@@ -77,6 +80,8 @@ func (s *Server) serveManager(response http.ResponseWriter, request *http.Reques
 		s.serveAsset(response, request)
 	case request.URL.Path == managerPrefix+"api/v1/status":
 		s.serveStatus(response, request)
+	case request.URL.Path == managerPrefix+"api/v1/inventory":
+		s.serveInventory(response, request)
 	case request.URL.Path == managerPrefix+"healthz":
 		s.serveHealth(response, request)
 	case request.URL.Path == managerPrefix+"readyz":

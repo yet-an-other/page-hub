@@ -30,6 +30,7 @@ func managerConfig() config.Config {
 		AuthAssertionHeader: "X-Page-Hub-Assertion",
 		AuthAssertionValue:  "test-only-assertion",
 		Version:             "test-version",
+		CatalogPath:         "/tmp/test-catalog.db",
 	}
 }
 
@@ -41,7 +42,7 @@ func TestManagerRejectsMissingInvalidAndSpoofedAssertions(t *testing.T) {
 		w.WriteHeader(http.StatusTeapot)
 	})
 
-	app, err := server.New(managerConfig(), checker, public)
+	app, err := server.New(managerConfig(), checker, nil, public)
 	if err != nil {
 		t.Fatalf("create server: %v", err)
 	}
@@ -78,7 +79,7 @@ func TestManagerRejectsMissingInvalidAndSpoofedAssertions(t *testing.T) {
 func TestUnauthenticatedManagerDocumentCanRedirectToGatewayLogin(t *testing.T) {
 	cfg := managerConfig()
 	cfg.AuthLoginURL = "https://login.example.invalid/start"
-	app, err := server.New(cfg, &fakeChecker{result: storage.CheckResult{Status: storage.StatusReachable}}, nil)
+	app, err := server.New(cfg, &fakeChecker{result: storage.CheckResult{Status: storage.StatusReachable}}, nil, nil)
 	if err != nil {
 		t.Fatalf("create server: %v", err)
 	}
@@ -96,7 +97,7 @@ func TestUnauthenticatedManagerDocumentCanRedirectToGatewayLogin(t *testing.T) {
 
 func TestAuthenticatedManagerServesShellAndStatus(t *testing.T) {
 	checker := &fakeChecker{result: storage.CheckResult{Status: storage.StatusReachable}}
-	app, err := server.New(managerConfig(), checker, nil)
+	app, err := server.New(managerConfig(), checker, nil, nil)
 	if err != nil {
 		t.Fatalf("create server: %v", err)
 	}
@@ -144,7 +145,7 @@ func TestReservedRouteFailureCannotFallThroughToPublicReader(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("public publication"))
 	})
-	app, err := server.New(managerConfig(), checker, public)
+	app, err := server.New(managerConfig(), checker, nil, public)
 	if err != nil {
 		t.Fatalf("create server: %v", err)
 	}
@@ -179,7 +180,7 @@ func TestPublicReaderDoesNotReceiveManagerCredentials(t *testing.T) {
 		}
 		w.WriteHeader(http.StatusOK)
 	})
-	app, err := server.New(managerConfig(), checker, public)
+	app, err := server.New(managerConfig(), checker, nil, public)
 	if err != nil {
 		t.Fatalf("create server: %v", err)
 	}

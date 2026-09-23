@@ -21,6 +21,7 @@ logs. For example, a secret manager can render a root-owned file at
 
 ```dotenv
 PAGE_HUB_AUTH_ASSERTION_VALUE=<high-entropy-gateway-shared-value>
+PAGE_HUB_CATALOG_PATH=/var/lib/page-hub/catalog.db
 PAGE_HUB_S3_ENDPOINT=https://<private-s3-endpoint>
 PAGE_HUB_S3_REGION=<s3-region>
 PAGE_HUB_S3_BUCKET=<publication-bucket>
@@ -29,12 +30,23 @@ PAGE_HUB_S3_SECRET_ACCESS_KEY=<bucket-scoped-secret>
 ```
 
 The S3 identity must be limited to the configured bucket and only the read
-operation required by this checkpoint (`HeadBucket`). Do not put a root, account,
-or all-buckets credential in this file. Rotate the file through the secret
-injection system, not through Git.
+operations required by this checkpoint (`HeadBucket` and object reads for
+adoption planning). Do not put a root, account, or all-buckets credential in
+this file. Rotate the file through the secret injection system, not through Git.
 
-A production service can run as an unprivileged user with a private catalog path
-reserved for the later catalog checkpoint:
+The private catalog lives outside the publication bucket. Create its schema
+once with the explicit migration command; the runtime never migrates and
+refuses to start against an incompatible or unmigrated catalog:
+
+```sh
+sudo -u <page-hub-user> /usr/local/libexec/page-hub migrate -catalog /var/lib/page-hub/catalog.db
+```
+
+Administrative commands take the catalog's exclusive lock. Stop the manager
+before running `migrate` or `commit`; both refuse to run while the runtime
+holds the catalog.
+
+A production service runs as an unprivileged user with a protected Unix socket:
 
 ```ini
 # /etc/systemd/system/page-hub.service
@@ -203,6 +215,9 @@ curl --fail --silent --show-error \
 curl --fail --silent --show-error \
   -H "X-Page-Hub-Assertion: ${PAGE_HUB_ASSERTION}" \
   https://page-hub.example.invalid/_page-hub/api/v1/status
+curl --fail --silent --show-error \
+  -H "X-Page-Hub-Assertion: ${PAGE_HUB_ASSERTION}" \
+  https://page-hub.example.invalid/_page-hub/api/v1/inventory
 
 # Health output contains only status fields; inspect it without printing secrets.
 curl --fail --silent --show-error \
@@ -216,6 +231,40 @@ curl --fail --silent --show-error \
 
 Also verify that an invalid assertion is rejected, a manager asset is served only
 under `/_page-hub/`, the configured bucket reports `reachable` in the manager, and
-stopping Page Hub leaves the known public Publication URL available. A storage
+stopping Page Hub leaves the known public Publication URL available. The
+inventory API returns the cataloged Projects and Publications; an empty catalog
+returns an empty list, not an error.
+
+## Adopting the first declared Publication
+
+Adoption is a two-command, storage-read-only workflow. Declare the candidate in
+a JSON file that validates against
+[`adoption-declaration.schema.json`](adoption-declaration.schema.json)
+and name every object exactly:
+
+```sh
+# Plan the candidate. This reads storage and writes a reviewable plan;
+# it never changes storage or the catalog.
+/usr/local/libexec/page-hub plan \
+  -declaration /etc/page-hub/adoption/first-publication.json \
+  -out /tmp/first-publication-plan.json
+```
+
+Review the plan: its `digest` binds the exact observed keys, sizes, ETags,
+modification times, metadata, and body digests. Then stop the manager, commit
+the approved plan, and start the manager again:
+
+```sh
+/usr/local/libexec/page-hub commit \
+  -plan /tmp/first-publication-plan.json \
+  -operation-id "$(uuidgen)" \
+  -catalog /var/lib/page-hub/catalog.db
+```
+
+Commit rechecks the candidate against storage immediately before its single
+catalog transaction: any changed byte, metadata value, or key set rejects the
+commit without accepting anything. A committed Publication appears in the
+manager inventory and survives a restart. Re-running `commit` with the same
+operation ID and plan returns the recorded result instead of duplicating it. A storage
 outage should report `unavailable` or `misconfigured`, never zero usage or bucket
 contents.

@@ -15,6 +15,20 @@ paths:
                 $ref: '#/components/schemas/ManagerStatus'
         '401':
           description: Trusted gateway assertion missing or invalid.
+  /_page-hub/api/v1/inventory:
+    get:
+      operationId: getInventory
+      responses:
+        '200':
+          description: Catalog-backed inventory of Projects and Publications.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inventory'
+        '401':
+          description: Trusted gateway assertion missing or invalid.
+        '503':
+          description: The catalog inventory is unavailable.
   /_page-hub/healthz:
     get:
       operationId: getHealth
@@ -47,6 +61,53 @@ paths:
                 $ref: '#/components/schemas/ReadinessStatus'
 components:
   schemas:
+    Inventory:
+      type: object
+      required: [projects]
+      properties:
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventoryProject'
+    InventoryProject:
+      type: object
+      required: [id, prefix, displayName, description, publications]
+      properties:
+        id:
+          type: string
+        prefix:
+          type: string
+        displayName:
+          type: string
+        description:
+          type: string
+        publications:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventoryPublication'
+    InventoryPublication:
+      type: object
+      required: [id, path, displayName, description, entryPoint, routingMode, size, contentChangedAt]
+      properties:
+        id:
+          type: string
+        path:
+          type: string
+        displayName:
+          type: string
+        description:
+          type: string
+        entryPoint:
+          type: string
+        routingMode:
+          type: string
+          enum: [exact_file, directory_index, fallback]
+        size:
+          type: integer
+          description: Accepted size in bytes from the current manifest.
+        contentChangedAt:
+          type: string
+          format: date-time
     StorageStatus:
       type: object
       required: [status]

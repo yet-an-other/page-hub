@@ -31,6 +31,8 @@ type Config struct {
 	AuthLoginURL        string
 	DevAuthBypass       bool
 
+	CatalogPath string
+
 	Storage storage.Config
 }
 
@@ -51,6 +53,7 @@ func Load() (Config, error) {
 		AuthAssertionValue:  os.Getenv("PAGE_HUB_AUTH_ASSERTION_VALUE"),
 		AuthLoginURL:        os.Getenv("PAGE_HUB_AUTH_LOGIN_URL"),
 		DevAuthBypass:       devBypass,
+		CatalogPath:         os.Getenv("PAGE_HUB_CATALOG_PATH"),
 		Storage: storage.Config{
 			Endpoint:        os.Getenv("PAGE_HUB_S3_ENDPOINT"),
 			Region:          envOr("PAGE_HUB_S3_REGION", DefaultStorageRegion),
@@ -71,6 +74,9 @@ func Load() (Config, error) {
 func (c Config) Validate() error {
 	if strings.TrimSpace(c.ListenAddr) == "" {
 		return errors.New("PAGE_HUB_LISTEN_ADDR must not be empty")
+	}
+	if strings.TrimSpace(c.CatalogPath) == "" {
+		return errors.New("PAGE_HUB_CATALOG_PATH is required; point it at the private SQLite catalog")
 	}
 	if !validHeaderName(c.AuthAssertionHeader) {
 		return fmt.Errorf("invalid authentication assertion header %q", c.AuthAssertionHeader)

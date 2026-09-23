@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/yet-an-other/page-hub/main/docs/adoption-declaration.schema.json",
+  "title": "Page Hub adoption declaration",
+  "description": "An explicit declaration of the Publications Page Hub should adopt. Page Hub never infers Publication boundaries from storage; every proposed Project prefix, Publication path, object key, entry point, and routing mode is named here. Adopting never writes, copies, or deletes storage objects.",
+  "type": "object",
+  "required": ["version", "publications"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1,
+      "description": "Declaration schema version."
+    },
+    "publications": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/publication" }
+    }
+  },
+  "$defs": {
+    "publication": {
+      "type": "object",
+      "required": ["project", "path", "entryPoint", "routingMode", "objects"],
+      "additionalProperties": false,
+      "properties": {
+        "project": {
+          "type": "object",
+          "required": ["prefix"],
+          "additionalProperties": false,
+          "properties": {
+            "prefix": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Single top-level path segment owned by the Project. Must not be the reserved '_page-hub'."
+            },
+            "displayName": {
+              "type": "string",
+              "description": "Optional human display name; defaults to the publication path's last segment."
+            }
+          }
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Exact publication path: the project prefix itself (Root Publication) or a path beneath it. Trailing slashes and '.', '..' segments are rejected."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Optional human display name; defaults to the publication path's last segment."
+        },
+        "entryPoint": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Exact object key used as the entry point. Must be part of the declared object set. Character case is preserved exactly."
+        },
+        "routingMode": {
+          "enum": ["exact_file", "directory_index", "fallback"],
+          "description": "exact_file serves one object at the publication path; directory_index serves the entry point for the publication path and subpaths; fallback serves the entry point for any unmatched subpath."
+        },
+        "objects": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Exact bucket object key: the publication path itself (exact-file Publications) or the publication path plus a relative suffix."
+          }
+        }
+      }
+    }
+  }
+}
