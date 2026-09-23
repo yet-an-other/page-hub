@@ -26,7 +26,7 @@ verify:
 	pnpm --dir web exec playwright test -c playwright.config.ts
 
 release: build
-	sha256sum dist/page-hub-$(VERSION)-linux-amd64 > dist/page-hub-$(VERSION)-linux-amd64.sha256
+	cd dist && sha256sum page-hub-$(VERSION)-linux-amd64 > page-hub-$(VERSION)-linux-amd64.sha256
 
 clean:
 	rm -rf dist
