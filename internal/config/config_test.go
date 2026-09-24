@@ -25,6 +25,7 @@ func TestDevelopmentBypassRequiresLoopbackListener(t *testing.T) {
 				AuthAssertionHeader: "X-Page-Hub-Assertion",
 				CatalogPath:         "/var/lib/page-hub/catalog.db",
 				StorageQuotaBytes:   1 << 30,
+				PublicBaseURL:       "https://share.bdgn.me",
 			}
 			if err := cfg.Validate(); (err != nil) != test.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, test.wantErr)
@@ -38,9 +39,48 @@ func TestProductionRequiresAnAssertion(t *testing.T) {
 		ListenAddr:          "127.0.0.1:8080",
 		AuthAssertionHeader: "X-Page-Hub-Assertion",
 		CatalogPath:         "/var/lib/page-hub/catalog.db",
+		PublicBaseURL:       "https://share.bdgn.me",
 	}
 	if err := cfg.Validate(); err == nil {
 		t.Fatal("Validate() succeeded without a production assertion")
+	}
+}
+
+func TestValidateRequiresAPublicBaseURL(t *testing.T) {
+	for name, base := range map[string]string{
+		"missing":     "",
+		"relative":    "share.bdgn.me",
+		"with query":  "https://share.bdgn.me/?x=1",
+		"not http(s)": "ftp://share.bdgn.me",
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg := Config{
+				ListenAddr:          "127.0.0.1:8080",
+				AuthAssertionHeader: "X-Page-Hub-Assertion",
+				AuthAssertionValue:  "configured-value",
+				CatalogPath:         "/var/lib/page-hub/catalog.db",
+				StorageQuotaBytes:   1 << 30,
+				PublicBaseURL:       base,
+			}
+			if err := cfg.Validate(); err == nil {
+				t.Fatalf("Validate() succeeded with public base URL %q", base)
+			}
+		})
+	}
+}
+
+func TestLoadNormalizesThePublicBaseURL(t *testing.T) {
+	t.Setenv("PAGE_HUB_LISTEN_ADDR", "127.0.0.1:8080")
+	t.Setenv("PAGE_HUB_AUTH_ASSERTION_VALUE", "configured-value")
+	t.Setenv("PAGE_HUB_CATALOG_PATH", "/var/lib/page-hub/catalog.db")
+	t.Setenv("PAGE_HUB_STORAGE_QUOTA_BYTES", "1073741824")
+	t.Setenv("PAGE_HUB_PUBLIC_BASE_URL", "https://share.bdgn.me/")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.PublicBaseURL != "https://share.bdgn.me" {
+		t.Fatalf("PublicBaseURL = %q, want trailing slash removed", cfg.PublicBaseURL)
 	}
 }
 
@@ -51,6 +91,7 @@ func TestProductionAcceptsConfiguredAssertion(t *testing.T) {
 		AuthAssertionValue:  "configured-value",
 		CatalogPath:         "/var/lib/page-hub/catalog.db",
 		StorageQuotaBytes:   1 << 30,
+		PublicBaseURL:       "https://share.bdgn.me",
 	}
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("Validate() error = %v", err)
@@ -81,6 +122,7 @@ func TestValidateRequiresPositiveStorageQuota(t *testing.T) {
 				AuthAssertionValue:  "configured-value",
 				CatalogPath:         "/var/lib/page-hub/catalog.db",
 				StorageQuotaBytes:   quota,
+				PublicBaseURL:       "https://share.bdgn.me",
 			}
 			err := cfg.Validate()
 			if (err != nil) != (quota <= 0) {
@@ -94,6 +136,7 @@ func TestLoadRequiresStorageQuota(t *testing.T) {
 	t.Setenv("PAGE_HUB_LISTEN_ADDR", "127.0.0.1:0")
 	t.Setenv("PAGE_HUB_AUTH_ASSERTION_VALUE", "test-only-assertion")
 	t.Setenv("PAGE_HUB_CATALOG_PATH", "/tmp/test-catalog.db")
+	t.Setenv("PAGE_HUB_PUBLIC_BASE_URL", "https://share.bdgn.me")
 
 	t.Setenv("PAGE_HUB_STORAGE_QUOTA_BYTES", "")
 	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "PAGE_HUB_STORAGE_QUOTA_BYTES") {

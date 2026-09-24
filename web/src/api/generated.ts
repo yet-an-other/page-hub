@@ -123,6 +123,8 @@ export interface components {
             size: number;
             /** Format: date-time */
             contentChangedAt: string;
+            /** @description Canonical public URL joined from the configured public base URL and the Publication path. */
+            canonicalUrl: string;
             /** @description Observed storage state from the latest complete bucket observation. */
             observation: components["schemas"]["PublicationObservation"] | null;
         };

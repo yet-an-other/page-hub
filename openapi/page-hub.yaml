@@ -120,7 +120,7 @@ components:
             $ref: '#/components/schemas/InventoryPublication'
     InventoryPublication:
       type: object
-      required: [id, path, displayName, description, entryPoint, routingMode, size, contentChangedAt, observation]
+      required: [id, path, displayName, description, entryPoint, routingMode, size, contentChangedAt, canonicalUrl, observation]
       properties:
         id:
           type: string
@@ -141,6 +141,9 @@ components:
         contentChangedAt:
           type: string
           format: date-time
+        canonicalUrl:
+          type: string
+          description: Canonical public URL joined from the configured public base URL and the Publication path.
         observation:
           description: Observed storage state from the latest complete bucket observation.
           oneOf:

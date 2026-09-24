@@ -11,7 +11,8 @@ import (
 
 // InventoryPublication is the catalog-backed view of one managed Publication.
 // Accepted facts come from the current manifest; Observation carries the
-// latest storage comparison and never replaces accepted values.
+// latest storage comparison and never replaces accepted values. CanonicalURL
+// is filled by the manager API from its configured public base URL.
 type InventoryPublication struct {
 	ID               string                  `json:"id"`
 	Path             string                  `json:"path"`
@@ -21,6 +22,7 @@ type InventoryPublication struct {
 	RoutingMode      string                  `json:"routingMode"`
 	Size             int64                   `json:"size"`
 	ContentChangedAt string                  `json:"contentChangedAt"`
+	CanonicalURL     string                  `json:"canonicalUrl"`
 	Observation      *PublicationObservation `json:"observation"`
 }
 

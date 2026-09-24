@@ -47,8 +47,15 @@ func (s *Server) serveInventory(response http.ResponseWriter, request *http.Requ
 	if inventory.Projects == nil {
 		inventory.Projects = []catalog.InventoryProject{}
 	}
-	// Quota is deployment configuration, not cataloged state; staleness is a
-	// property of the observation age at read time.
+	// Quota and canonical public URLs are deployment configuration, not
+	// cataloged state; staleness is a property of the observation age at
+	// read time.
+	for projectIndex := range inventory.Projects {
+		publications := inventory.Projects[projectIndex].Publications
+		for publicationIndex := range publications {
+			publications[publicationIndex].CanonicalURL = s.canonicalURL(publications[publicationIndex].Path)
+		}
+	}
 	if inventory.Observation != nil {
 		inventory.Observation.Usage.QuotaBytes = s.config.StorageQuotaBytes
 		inventory.Observation.Stale = time.Since(inventory.Observation.ObservedAt) > observationStaleAfter

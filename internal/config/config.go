@@ -63,6 +63,11 @@ type Config struct {
 
 	CatalogPath string
 
+	// PublicBaseURL is the canonical public origin Publications are served
+	// from. The manager needs it to record canonical public URLs for the
+	// inventory and to redirect authenticated previews.
+	PublicBaseURL string
+
 	// StorageQuotaBytes is the explicitly configured bucket quota. Usage is
 	// always computed from bucket observations, never from a vendor-specific
 	// quota interface.
@@ -98,6 +103,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	publicBaseURL, err := NormalizePublicBaseURL(os.Getenv("PAGE_HUB_PUBLIC_BASE_URL"))
+	if err != nil {
+		return Config{}, fmt.Errorf("PAGE_HUB_PUBLIC_BASE_URL is required, such as https://share.bdgn.me: %w", err)
+	}
 
 	cfg := Config{
 		ListenAddr:          envOr("PAGE_HUB_LISTEN_ADDR", DefaultListenAddr),
@@ -108,6 +117,7 @@ func Load() (Config, error) {
 		DevAuthBypass:       devBypass,
 		CatalogPath:         os.Getenv("PAGE_HUB_CATALOG_PATH"),
 		StorageQuotaBytes:   quota,
+		PublicBaseURL:       publicBaseURL,
 		Storage: storage.Config{
 			Endpoint:        os.Getenv("PAGE_HUB_S3_ENDPOINT"),
 			Region:          envOr("PAGE_HUB_S3_REGION", DefaultStorageRegion),
@@ -134,6 +144,9 @@ func (c Config) Validate() error {
 	}
 	if c.StorageQuotaBytes <= 0 {
 		return errors.New("PAGE_HUB_STORAGE_QUOTA_BYTES is required: configure the exact bucket quota in bytes; usage is calculated from bucket observations, not a vendor quota interface")
+	}
+	if _, err := NormalizePublicBaseURL(c.PublicBaseURL); err != nil {
+		return fmt.Errorf("PAGE_HUB_PUBLIC_BASE_URL is required for canonical public URLs and authenticated previews: %w", err)
 	}
 	if !validHeaderName(c.AuthAssertionHeader) {
 		return fmt.Errorf("invalid authentication assertion header %q", c.AuthAssertionHeader)

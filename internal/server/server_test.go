@@ -32,6 +32,7 @@ func managerConfig() config.Config {
 		Version:             "test-version",
 		CatalogPath:         "/tmp/test-catalog.db",
 		StorageQuotaBytes:   1 << 30,
+		PublicBaseURL:       "https://share.bdgn.me",
 	}
 }
 

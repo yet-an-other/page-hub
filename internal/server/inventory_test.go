@@ -114,6 +114,10 @@ func TestInventoryReturnsCatalogedProjectsWithObservation(t *testing.T) {
 	if payload.Observation.Usage.QuotaBytes != int64(1<<30) {
 		t.Fatalf("quota bytes = %d, want %d", payload.Observation.Usage.QuotaBytes, int64(1<<30))
 	}
+	// Canonical public URLs come from the configured public base URL.
+	if publication.CanonicalURL != "https://share.bdgn.me/notes/2026-report" {
+		t.Fatalf("canonical URL = %q", publication.CanonicalURL)
+	}
 }
 
 func TestInventoryWithoutObservationOmitsIt(t *testing.T) {

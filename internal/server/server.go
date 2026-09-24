@@ -97,6 +97,8 @@ func (s *Server) serveManager(response http.ResponseWriter, request *http.Reques
 		s.serveInventory(response, request)
 	case request.URL.Path == managerPrefix+"api/v1/refresh":
 		s.serveRefresh(response, request)
+	case strings.HasPrefix(request.URL.Path, managerPrefix+"preview/"):
+		s.servePreview(response, request)
 	case request.URL.Path == managerPrefix+"healthz":
 		s.serveHealth(response, request)
 	case request.URL.Path == managerPrefix+"readyz":
