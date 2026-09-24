@@ -24,7 +24,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `cd .. && CGO_ENABLED=0 go build -o /tmp/page-hub-playwright ./cmd/page-hub && go run ./tools/seedcatalog -catalog /tmp/page-hub-playwright-catalog.db && PAGE_HUB_CATALOG_PATH=/tmp/page-hub-playwright-catalog.db PAGE_HUB_LISTEN_ADDR=127.0.0.1:${port} PAGE_HUB_AUTH_ASSERTION_VALUE=${assertion} PAGE_HUB_STORAGE_QUOTA_BYTES=1048576 /tmp/page-hub-playwright`,
+    command: `cd .. && CGO_ENABLED=0 go build -o /tmp/page-hub-playwright ./cmd/page-hub && go run ./tools/seedcatalog -catalog /tmp/page-hub-playwright-catalog.db && PAGE_HUB_CATALOG_PATH=/tmp/page-hub-playwright-catalog.db PAGE_HUB_LISTEN_ADDR=127.0.0.1:${port} PAGE_HUB_AUTH_ASSERTION_VALUE=${assertion} PAGE_HUB_STORAGE_QUOTA_BYTES=1048576 PAGE_HUB_PUBLIC_BASE_URL=http://127.0.0.1:${port} /tmp/page-hub-playwright`,
     url: `http://127.0.0.1:${port}/_page-hub/healthz`,
     reuseExistingServer: false,
     timeout: 120_000,

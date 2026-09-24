@@ -3,11 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { getInventory, getManagerStatus, requestRefresh } from './api/client'
 import type { components } from './api/generated'
+import { Inventory } from './components/Inventory'
 import { Badge } from './components/ui/badge'
 import { Card, CardContent, CardHeader } from './components/ui/card'
+import { formatBytes, formatDate } from './lib/format'
 
 type BucketObservation = components['schemas']['BucketObservation']
-type PublicationObservation = components['schemas']['PublicationObservation']
 type RefreshState = components['schemas']['RefreshState']
 
 const statusStyles = {
@@ -16,47 +17,10 @@ const statusStyles = {
   misconfigured: 'bg-rose-100 text-rose-800',
 } as const
 
-const observedStyles = {
-  in_sync: 'bg-emerald-100 text-emerald-800',
-  drifted: 'bg-amber-100 text-amber-800',
-  missing: 'bg-rose-100 text-rose-800',
-} as const
-
-const observedLabels = {
-  in_sync: 'in sync',
-  drifted: 'drifted',
-  missing: 'missing',
-} as const
-
 const outcomeLabels: Record<string, string> = {
   unavailable: 'storage unavailable',
   misconfigured: 'storage misconfigured',
   failed: 'the scan failed',
-}
-
-function formatBytes(size: number): string {
-  if (size < 1024) return `${size} B`
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KiB`
-  return `${(size / (1024 * 1024)).toFixed(1)} MiB`
-}
-
-function formatDate(value: string): string {
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-  return parsed.toISOString().slice(0, 16).replace('T', ' ') + ' UTC'
-}
-
-function ObservationBadge({ observation }: { observation: PublicationObservation }) {
-  return (
-    <span className="inline-flex items-center gap-2">
-      <Badge className={`border border-transparent ${observedStyles[observation.state]}`}>
-        {observedLabels[observation.state]}
-      </Badge>
-      {observation.statusDetail && (
-        <span className="text-xs text-amber-700">{observation.statusDetail}</span>
-      )}
-    </span>
-  )
 }
 
 function UsageRow({ label, value }: { label: string; value: string }) {
@@ -196,7 +160,7 @@ export function App() {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-8 sm:px-8 sm:py-12">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 sm:px-8 sm:py-12">
         <header className="flex flex-col gap-2">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Private manager</p>
           <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Page Hub</h1>
@@ -211,57 +175,19 @@ export function App() {
           pending={refresh.isPending}
         />
 
-        <section aria-label="Publication inventory" className="flex flex-col gap-4">
-          {inventory.isPending && (
-            <Card>
-              <CardContent className="py-6 text-sm text-slate-500">Loading inventory…</CardContent>
-            </Card>
-          )}
-          {inventory.isError && (
-            <Card>
-              <CardContent className="py-6 text-sm text-amber-700">Inventory is unavailable.</CardContent>
-            </Card>
-          )}
-          {!inventory.isPending && !inventory.isError && projects.length === 0 && (
-            <Card>
-              <CardContent className="py-6 text-sm text-slate-500">
-                No Projects are managed yet. Adopt a declared Publication with the plan and commit commands.
-              </CardContent>
-            </Card>
-          )}
-          {projects.map((project) => (
-            <Card key={project.id}>
-              <CardHeader>
-                <h2 className="text-lg font-semibold">{project.displayName}</h2>
-                {project.description && <p className="mt-1 text-sm text-slate-600">{project.description}</p>}
-              </CardHeader>
-              <CardContent className="flex flex-col divide-y divide-slate-100">
-                {project.publications.length === 0 && (
-                  <p className="py-3 text-sm text-slate-500">No Publications in this Project yet.</p>
-                )}
-                {project.publications.map((publication) => (
-                  <div key={publication.id} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-baseline sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{publication.displayName}</p>
-                      <p className="truncate font-mono text-xs text-slate-500">{publication.path}</p>
-                      {publication.description && <p className="mt-1 text-sm text-slate-600">{publication.description}</p>}
-                      {publication.observation && (
-                        <div className="mt-1">
-                          <ObservationBadge observation={publication.observation} />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-3 text-xs text-slate-500 sm:flex-col sm:items-end sm:gap-1">
-                      <span>{formatBytes(publication.size)}</span>
-                      <span>Content changed {formatDate(publication.contentChangedAt)}</span>
-                      <Badge className="border border-slate-200 bg-slate-50 text-slate-600">{publication.routingMode}</Badge>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          ))}
-        </section>
+        {inventory.isPending && (
+          <Card>
+            <CardContent className="py-6 text-sm text-slate-500">Loading inventory…</CardContent>
+          </Card>
+        )}
+        {inventory.isError && (
+          <Card>
+            <CardContent className="py-6 text-sm text-amber-700">Inventory is unavailable.</CardContent>
+          </Card>
+        )}
+        {!inventory.isPending && !inventory.isError && (
+          <Inventory projects={projects} observation={observation} />
+        )}
 
         {observation
           ? <UsageCard observation={observation} />

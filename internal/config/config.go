@@ -39,9 +39,8 @@ func NormalizePublicBaseURL(raw string) (string, error) {
 
 // PublicBaseURLFromEnv reads the canonical public origin from
 // PAGE_HUB_PUBLIC_BASE_URL. The adoption plan and commit commands use it to
-// record canonical public URLs and to probe the declared public routes, so
-// it is required for them even though the running manager does not need it
-// yet.
+// record canonical public URLs and to probe the declared public routes, and
+// the running manager requires it for canonical public URLs and previews.
 func PublicBaseURLFromEnv() (string, error) {
 	normalized, err := NormalizePublicBaseURL(os.Getenv("PAGE_HUB_PUBLIC_BASE_URL"))
 	if err != nil {

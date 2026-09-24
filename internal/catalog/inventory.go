@@ -131,6 +131,11 @@ func (s *Store) Inventory(ctx context.Context) (Inventory, error) {
 	for _, id := range order {
 		project := projects[id]
 		sortPublications(project.Publications)
+		// An empty Project must marshal as an empty array, never null: the
+		// inventory contract promises an array of Publications per Project.
+		if project.Publications == nil {
+			project.Publications = []InventoryPublication{}
+		}
 		inventory.Projects = append(inventory.Projects, *project)
 	}
 	sortProjects(inventory.Projects)

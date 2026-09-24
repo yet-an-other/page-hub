@@ -15,10 +15,11 @@ make release VERSION=0.4.0
 ```
 
 The manager requires `PAGE_HUB_AUTH_ASSERTION_VALUE`, `PAGE_HUB_CATALOG_PATH`,
-and `PAGE_HUB_STORAGE_QUOTA_BYTES` (the exact bucket quota in bytes; usage is
-calculated from bucket observations, never a vendor quota interface) in
-production. For local loopback development only, set
-`PAGE_HUB_DEV_AUTH_BYPASS=true`. See
+`PAGE_HUB_STORAGE_QUOTA_BYTES` (the exact bucket quota in bytes; usage is
+calculated from bucket observations, never a vendor quota interface), and
+`PAGE_HUB_PUBLIC_BASE_URL` (the canonical public origin used for canonical
+public URLs and authenticated previews) in production. For local loopback
+development only, set `PAGE_HUB_DEV_AUTH_BYPASS=true`. See
 [`docs/first-checkpoint-deployment.md`](docs/first-checkpoint-deployment.md) for
 reverse-proxy and secret-injection guidance.
 

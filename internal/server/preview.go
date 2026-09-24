@@ -5,6 +5,7 @@ import (
 	"path"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/yet-an-other/page-hub/internal/adoption"
 	"github.com/yet-an-other/page-hub/internal/catalog"
@@ -107,7 +108,9 @@ func (s *Server) previewWarningFor(publication catalog.InventoryPublication, inv
 		warning.StatusDetail = publication.Observation.StatusDetail
 	}
 	warning.ObservedAt = inventory.Observation.ObservedAt.UTC().Format("2006-01-02 15:04") + " UTC"
-	warning.Stale = inventory.Observation.Stale
+	// Staleness is a property of the observation age at read time, computed
+	// the same way the inventory API computes it.
+	warning.Stale = time.Since(inventory.Observation.ObservedAt) > observationStaleAfter
 	return warning
 }
 
