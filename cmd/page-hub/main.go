@@ -117,12 +117,15 @@ func runServe(args []string) {
 		os.Exit(2)
 	}
 
+	shutdownContext, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	// Request one storage observation in the background so the manager serves
 	// its catalog immediately, even while storage is slow or unavailable. A
 	// failed scan leaves the previous observation in place; the formal refresh
-	// schedule and retries own degraded readiness.
+	// schedule and retries own degraded readiness. Shutdown cancels the scan.
 	go func() {
-		result, err := observe.Run(context.Background(), storage.NewS3Reader(cfg.Storage), store, observe.Options{})
+		result, err := observe.Run(shutdownContext, storage.NewS3Reader(cfg.Storage), store, observe.Options{})
 		if err != nil {
 			slog.Warn("startup storage observation failed", "status", resultStatus(err))
 			return
@@ -148,8 +151,6 @@ func runServe(args []string) {
 		IdleTimeout:       60 * time.Second,
 	}
 
-	shutdownContext, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 	go func() {
 		<-shutdownContext.Done()
 		gracefulContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)

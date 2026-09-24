@@ -319,15 +319,25 @@ func describeFindings(findings []objectFinding, totalObjects int) string {
 			parts = append(parts, finding.key+": absent from storage")
 			continue
 		}
-		detail := finding.key + ": " + strings.Join(finding.diffs, ", ")
+		var detail strings.Builder
+		detail.WriteString(finding.key)
+		if len(finding.diffs) > 0 {
+			detail.WriteString(": ")
+			detail.WriteString(strings.Join(finding.diffs, ", "))
+		}
 		if finding.bytesVerified {
-			if finding.bytesDiffer {
-				detail += ", body verified different"
+			if len(finding.diffs) > 0 {
+				detail.WriteString(", ")
 			} else {
-				detail += ", body verified unchanged"
+				detail.WriteString(": ")
+			}
+			if finding.bytesDiffer {
+				detail.WriteString("body verified different")
+			} else {
+				detail.WriteString("body verified unchanged")
 			}
 		}
-		parts = append(parts, detail)
+		parts = append(parts, detail.String())
 	}
 	if remainder := len(ordered) - len(shown); remainder > 0 {
 		parts = append(parts, fmt.Sprintf("%d more object(s) differ", remainder))

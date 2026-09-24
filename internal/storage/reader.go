@@ -194,8 +194,27 @@ func (r *S3Reader) ReadObject(ctx context.Context, key string) (ObjectContent, e
 		return ObjectContent{}, fmt.Errorf("%w: reading object body failed", ErrStorageUnavailable)
 	}
 
+	objectMeta := metadataFromHeaders(key, response.Header)
+	return ObjectContent{
+		Key:             objectMeta.Key,
+		Size:            int64(len(body)),
+		ETag:            objectMeta.ETag,
+		LastModified:    objectMeta.LastModified,
+		ContentType:     objectMeta.ContentType,
+		ContentEncoding: objectMeta.ContentEncoding,
+		CacheControl:    objectMeta.CacheControl,
+		UserMetadata:    objectMeta.UserMetadata,
+		Body:            body,
+		SHA256:          hex.EncodeToString(digest.Sum(nil)),
+	}, nil
+}
+
+// metadataFromHeaders reads the exact serving metadata and user metadata S3
+// returns for one object. It is shared by body reads and metadata-only reads
+// so both observation paths compare identical values.
+func metadataFromHeaders(key string, header http.Header) ObjectMeta {
 	metadata := map[string]string{}
-	for name, values := range response.Header {
+	for name, values := range header {
 		if len(values) == 0 {
 			continue
 		}
@@ -205,24 +224,21 @@ func (r *S3Reader) ReadObject(ctx context.Context, key string) (ObjectContent, e
 	}
 
 	lastModified := time.Time{}
-	if raw := response.Header.Get("Last-Modified"); raw != "" {
+	if raw := header.Get("Last-Modified"); raw != "" {
 		if parsed, err := http.ParseTime(raw); err == nil {
 			lastModified = parsed.UTC()
 		}
 	}
 
-	return ObjectContent{
+	return ObjectMeta{
 		Key:             key,
-		Size:            int64(len(body)),
-		ETag:            response.Header.Get("ETag"),
+		ETag:            header.Get("ETag"),
 		LastModified:    lastModified,
-		ContentType:     response.Header.Get("Content-Type"),
-		ContentEncoding: response.Header.Get("Content-Encoding"),
-		CacheControl:    response.Header.Get("Cache-Control"),
+		ContentType:     header.Get("Content-Type"),
+		ContentEncoding: header.Get("Content-Encoding"),
+		CacheControl:    header.Get("Cache-Control"),
 		UserMetadata:    metadata,
-		Body:            body,
-		SHA256:          hex.EncodeToString(digest.Sum(nil)),
-	}, nil
+	}
 }
 
 // ObjectMeta is one observed object's exact metadata without its body.
@@ -265,32 +281,9 @@ func (r *S3Reader) StatObject(ctx context.Context, key string) (ObjectMeta, erro
 		return ObjectMeta{}, classifyStatus("read metadata "+key, response.StatusCode)
 	}
 
-	metadata := map[string]string{}
-	for name, values := range response.Header {
-		if len(values) == 0 {
-			continue
-		}
-		if strings.HasPrefix(strings.ToLower(name), "x-amz-meta-") {
-			metadata[strings.TrimPrefix(strings.ToLower(name), "x-amz-meta-")] = values[0]
-		}
-	}
-
-	lastModified := time.Time{}
-	if raw := response.Header.Get("Last-Modified"); raw != "" {
-		if parsed, err := http.ParseTime(raw); err == nil {
-			lastModified = parsed.UTC()
-		}
-	}
-	return ObjectMeta{
-		Key:             key,
-		Size:            response.ContentLength,
-		ETag:            response.Header.Get("ETag"),
-		LastModified:    lastModified,
-		ContentType:     response.Header.Get("Content-Type"),
-		ContentEncoding: response.Header.Get("Content-Encoding"),
-		CacheControl:    response.Header.Get("Cache-Control"),
-		UserMetadata:    metadata,
-	}, nil
+	meta := metadataFromHeaders(key, response.Header)
+	meta.Size = response.ContentLength
+	return meta, nil
 }
 
 func classifyStatus(action string, status int) error {

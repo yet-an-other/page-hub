@@ -353,6 +353,27 @@ func TestScanCompleteReconciliationVerifiesEveryBody(t *testing.T) {
 	}
 }
 
+func TestScanCompleteReconciliationReportsBodyOnlyDrift(t *testing.T) {
+	// A complete reconciliation verifies bytes even when listing and metadata
+	// match. A changed body with a frozen ETag must still produce readable
+	// drift detail, not an empty difference list.
+	manifest, objects := syncFixtures()
+	objects["guides/index.html"] = objects["guides/index.html"].mutate(func(object *fakeObject) {
+		object.content = []byte("<html>guides gone</html>") // same length as the accepted body
+	})
+	reader := &fakeReader{objects: objects}
+
+	result := observeFixtures(t, reader, []catalog.PublicationManifest{manifest}, observe.Options{Now: fakeNow, Complete: true})
+
+	publication := publicationResult(t, result, "publication-1")
+	if publication.State != catalog.StateDrifted {
+		t.Fatalf("state = %q, want drifted", publication.State)
+	}
+	if !strings.Contains(publication.StatusDetail, "guides/index.html: body verified different") {
+		t.Fatalf("status detail = %q, want a readable body-only difference", publication.StatusDetail)
+	}
+}
+
 func TestScanRepresentativeFixtures(t *testing.T) {
 	// A multi-object fallback Publication, an uppercase exact-file entry
 	// point, and a single-object exact-file Publication.

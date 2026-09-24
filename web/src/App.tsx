@@ -87,6 +87,22 @@ function UsageCard({ observation }: { observation: BucketObservation }) {
   )
 }
 
+function UnavailableUsageCard() {
+  return (
+    <Card aria-label="Storage usage">
+      <CardHeader>
+        <h2 className="text-lg font-semibold">Storage usage</h2>
+        <p className="mt-1 text-sm text-slate-500">From the complete bucket observation.</p>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm text-amber-700">
+          Usage is unavailable until the first storage scan completes. Published sizes above still come from their accepted manifests.
+        </p>
+      </CardContent>
+    </Card>
+  )
+}
+
 export function App() {
   const status = useQuery({
     queryKey: ['manager-status'],
@@ -166,7 +182,7 @@ export function App() {
           ))}
         </section>
 
-        {observation && <UsageCard observation={observation} />}
+        {observation ? <UsageCard observation={observation} /> : !inventory.isPending && !inventory.isError && <UnavailableUsageCard />}
 
         <Card>
           <CardHeader>

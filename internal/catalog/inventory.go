@@ -55,12 +55,12 @@ type Inventory struct {
 // observation leaves Observation nil.
 func (s *Store) Inventory(ctx context.Context) (Inventory, error) {
 	latest, found, err := s.LatestObservation(ctx)
+	if err != nil {
+		return Inventory{}, err
+	}
 	var publications map[string]PublicationObservation
 	if found {
 		publications = latest.Publications
-	}
-	if err != nil {
-		return Inventory{}, err
 	}
 
 	rows, err := s.db.QueryContext(ctx, `
