@@ -58,7 +58,7 @@ func (s *Server) serveInventory(response http.ResponseWriter, request *http.Requ
 	}
 	if inventory.Observation != nil {
 		inventory.Observation.Usage.QuotaBytes = s.config.StorageQuotaBytes
-		inventory.Observation.Stale = time.Since(inventory.Observation.ObservedAt) > observationStaleAfter
+		inventory.Observation.Stale = observationStale(inventory.Observation.ObservedAt)
 	}
 	payload := inventoryResponse{
 		Projects:    inventory.Projects,

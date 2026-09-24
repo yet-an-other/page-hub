@@ -45,6 +45,11 @@ type Refresher interface {
 // observationStaleAfter marks an observation stale for the manager.
 const observationStaleAfter = 5 * time.Minute
 
+// observationStale reports whether an observation is stale at read time.
+func observationStale(observedAt time.Time) bool {
+	return time.Since(observedAt) > observationStaleAfter
+}
+
 // New creates the manager HTTP handler. The public handler is only considered
 // for non-reserved paths and may be nil when the public reader lives elsewhere.
 // The inventory reader may be nil only when the catalog is absent, in which

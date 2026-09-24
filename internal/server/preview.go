@@ -5,7 +5,6 @@ import (
 	"path"
 	"strings"
 	"text/template"
-	"time"
 
 	"github.com/yet-an-other/page-hub/internal/adoption"
 	"github.com/yet-an-other/page-hub/internal/catalog"
@@ -45,10 +44,9 @@ func (s *Server) servePreview(response http.ResponseWriter, request *http.Reques
 		// Catalog internals stay out of the browser; the failure still
 		// fails closed instead of redirecting.
 		s.writePreviewWarning(response, request, previewWarning{
-			Status:        http.StatusServiceUnavailable,
-			Path:          publicationPath,
-			Reason:        "The catalog is unavailable, so the observed state of this Publication is unknown.",
-			ShowInventory: true,
+			Status: http.StatusServiceUnavailable,
+			Path:   publicationPath,
+			Reason: "The catalog is unavailable, so the observed state of this Publication is unknown.",
 		})
 		return
 	}
@@ -69,11 +67,10 @@ func (s *Server) servePreview(response http.ResponseWriter, request *http.Reques
 	}
 	if publicURL == "" {
 		s.writePreviewWarning(response, request, previewWarning{
-			Status:        http.StatusServiceUnavailable,
-			DisplayName:   publication.DisplayName,
-			Path:          publication.Path,
-			Reason:        "Page Hub is not configured with a public base URL, so it cannot redirect to the canonical public URL.",
-			ShowInventory: true,
+			Status:      http.StatusServiceUnavailable,
+			DisplayName: publication.DisplayName,
+			Path:        publication.Path,
+			Reason:      "Page Hub is not configured with a public base URL, so it cannot redirect to the canonical public URL.",
 		})
 		return
 	}
@@ -92,7 +89,6 @@ func (s *Server) previewWarningFor(publication catalog.InventoryPublication, inv
 	switch {
 	case inventory.Observation == nil:
 		warning.Reason = "Page Hub has not completed a storage observation yet, so the state of this Publication is unknown."
-		warning.ShowInventory = true
 		return warning
 	case publication.Observation == nil:
 		warning.Reason = "The latest observation did not classify this Publication, so its state is unknown."
@@ -108,23 +104,20 @@ func (s *Server) previewWarningFor(publication catalog.InventoryPublication, inv
 		warning.StatusDetail = publication.Observation.StatusDetail
 	}
 	warning.ObservedAt = inventory.Observation.ObservedAt.UTC().Format("2006-01-02 15:04") + " UTC"
-	// Staleness is a property of the observation age at read time, computed
-	// the same way the inventory API computes it.
-	warning.Stale = time.Since(inventory.Observation.ObservedAt) > observationStaleAfter
+	warning.Stale = observationStale(inventory.Observation.ObservedAt)
 	return warning
 }
 
 // previewWarning renders as a standalone warning page with no manager assets.
 type previewWarning struct {
-	Status        int
-	DisplayName   string
-	Path          string
-	Reason        string
-	StatusDetail  string
-	ObservedAt    string
-	Stale         bool
-	PublicURL     string
-	ShowInventory bool
+	Status       int
+	DisplayName  string
+	Path         string
+	Reason       string
+	StatusDetail string
+	ObservedAt   string
+	Stale        bool
+	PublicURL    string
 }
 
 func (s *Server) writePreviewWarning(response http.ResponseWriter, request *http.Request, warning previewWarning) {

@@ -241,7 +241,7 @@ export function Inventory({ projects, observation }: { projects: InventoryProjec
               <th scope="col" className="px-4 py-2.5 font-semibold sm:px-6">Publication</th>
               <th scope="col" className="hidden px-4 py-2.5 font-semibold md:table-cell sm:px-6">Private description</th>
               <th scope="col" className="px-4 py-2.5 font-semibold sm:px-6">State</th>
-              <th scope="col" className="hidden px-4 py-2.5 font-semibold lg:table-cell sm:px-6">Updated</th>
+              <th scope="col" className="hidden px-4 py-2.5 font-semibold lg:table-cell sm:px-6">Content changed</th>
               <th scope="col" className="px-4 py-2.5 text-right font-semibold sm:px-6">Size</th>
               <th scope="col" className="px-4 py-2.5 font-semibold sm:px-6">
                 <span className="sr-only">Open public page</span>
