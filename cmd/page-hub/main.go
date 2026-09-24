@@ -67,10 +67,14 @@ Usage:
   page-hub serve                                run the manager (default configuration from the environment)
   page-hub migrate -catalog <path>              apply pending catalog migrations
   page-hub plan -declaration <file> [-out <file>]
-                                                plan an explicit adoption declaration against storage
+                                                plan an explicit adoption declaration against storage and the public routes
   page-hub commit -plan <file> -operation-id <uuid> [-catalog <path>]
-                                                commit an approved plan into the catalog
+                                                commit an approved adoption batch into the catalog
   page-hub version                              print version and compatible catalog schema
+
+plan and commit require PAGE_HUB_PUBLIC_BASE_URL and the PAGE_HUB_S3_*
+environment variables. Commit refuses to run when PAGE_HUB_PUBLIC_BASE_URL
+differs from the origin recorded in the approved plan.
 `)
 	os.Exit(2)
 }
@@ -160,7 +164,8 @@ func runMigrate(args []string) {
 }
 
 // runPlan builds a reviewable adoption plan from an explicit declaration.
-// It reads storage and changes neither storage nor the catalog.
+// It reads storage, probes the declared public routes, and changes neither
+// storage nor the catalog.
 func runPlan(args []string) {
 	flags := flag.NewFlagSet("plan", flag.ExitOnError)
 	declarationPath := flags.String("declaration", "", "path to the adoption declaration JSON")
@@ -172,13 +177,19 @@ func runPlan(args []string) {
 		fmt.Fprintln(os.Stderr, "plan: -declaration <file> is required")
 		os.Exit(2)
 	}
+	publicBaseURL, err := config.PublicBaseURLFromEnv()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "page-hub plan: %v\n", err)
+		os.Exit(2)
+	}
 	declaration, err := readDeclaration(*declarationPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "page-hub plan: %v\n", err)
 		os.Exit(2)
 	}
 	reader := storage.NewS3Reader(storageConfigFromEnv())
-	plan, err := adoption.BuildPlan(context.Background(), reader, declaration)
+	prober := adoption.NewHTTPRouteProber()
+	plan, err := adoption.BuildPlan(context.Background(), reader, prober, publicBaseURL, declaration)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "page-hub plan: %v\n", err)
 		os.Exit(1)
@@ -192,12 +203,17 @@ func runPlan(args []string) {
 		fmt.Fprintf(os.Stderr, "page-hub plan: %v\n", err)
 		os.Exit(1)
 	}
-	slog.Info("adoption plan ready", "digest", plan.Digest)
+	slog.Info("adoption plan ready",
+		"digest", plan.Digest,
+		"publications", len(plan.Content.Publications),
+		"publicBaseURL", plan.Content.PublicBaseURL)
 }
 
-// runCommit accepts an approved plan into the catalog. It refuses to run while
-// the manager holds the catalog and rechecks the candidate immediately before
-// the transaction.
+// runCommit accepts an approved adoption batch into the catalog. It refuses
+// to run while the manager holds the catalog and repeats the complete
+// storage, public-probe, and catalog checks immediately before the
+// transaction. The public base URL recorded in the approved plan is reused,
+// so the digest binds the probe targets.
 func runCommit(args []string) {
 	flags := flag.NewFlagSet("commit", flag.ExitOnError)
 	planPath := flags.String("plan", "", "path to the approved plan JSON")
@@ -220,8 +236,20 @@ func runCommit(args []string) {
 		fmt.Fprintf(os.Stderr, "page-hub commit: %v\n", err)
 		os.Exit(2)
 	}
+	publicBaseURL, err := config.PublicBaseURLFromEnv()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "page-hub commit: %v\n", err)
+		os.Exit(2)
+	}
 	reader := storage.NewS3Reader(storageConfigFromEnv())
-	result, err := adoption.Commit(context.Background(), reader, plan, *operationID, *catalogPath)
+	result, err := adoption.Commit(context.Background(), adoption.CommitInput{
+		Reader:                reader,
+		Prober:                adoption.NewHTTPRouteProber(),
+		Approved:              plan,
+		OperationID:           *operationID,
+		CatalogPath:           *catalogPath,
+		ExpectedPublicBaseURL: publicBaseURL,
+	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "page-hub commit: %v\n", err)
 		os.Exit(1)

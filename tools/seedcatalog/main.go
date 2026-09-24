@@ -44,33 +44,35 @@ func main() {
 	}
 	defer store.Close()
 
-	_, err = store.CommitAdoption(catalog.CommitAdoptionInput{
+	_, err = store.CommitAdoptionBatch(catalog.CommitAdoptionBatchInput{
 		OperationID: "00000000-0000-4000-8000-000000000001",
 		RequestHash: "seed-fixture",
 		PlanDigest:  "sha256:seed-fixture",
-		Publication: catalog.AdoptedPublication{
-			ProjectPrefix:    "notes",
-			ProjectDisplay:   "Notes",
-			Description:      "Adopted project notes",
-			PublicationPath:  "notes/2026-report",
-			DisplayName:      "2026 Report",
-			EntryPoint:       "notes/2026-report/index.html",
-			RoutingMode:      "directory_index",
-			ContentChangedAt: "2026-01-02T03:04:05Z",
-			Objects: []catalog.AdoptedObject{
-				{
-					Key: "notes/2026-report/index.html", RelativePath: "index.html",
-					Size: 120, ETag: `"seed-etag-html"`, ModifiedAt: "2026-01-02T03:04:05Z",
-					ContentType: "text/html", SHA256: "1111111111111111111111111111111111111111111111111111111111111111",
-					UserMetadata: map[string]string{"source": "seed"},
+		Projects: []catalog.AdoptedProject{{
+			Prefix:      "notes",
+			DisplayName: "Notes",
+			Description: "Adopted project notes",
+			Publications: []catalog.AdoptedPublication{{
+				Path:             "notes/2026-report",
+				DisplayName:      "2026 Report",
+				EntryPoint:       "notes/2026-report/index.html",
+				RoutingMode:      "directory_index",
+				ContentChangedAt: "2026-01-02T03:04:05Z",
+				Objects: []catalog.AdoptedObject{
+					{
+						Key: "notes/2026-report/index.html", RelativePath: "index.html",
+						Size: 120, ETag: `"seed-etag-html"`, ModifiedAt: "2026-01-02T03:04:05Z",
+						ContentType: "text/html", SHA256: "1111111111111111111111111111111111111111111111111111111111111111",
+						UserMetadata: map[string]string{"source": "seed"},
+					},
+					{
+						Key: "notes/2026-report/style.css", RelativePath: "style.css",
+						Size: 30, ETag: `"seed-etag-css"`, ModifiedAt: "2025-12-31T10:00:00Z",
+						ContentType: "text/css", SHA256: "2222222222222222222222222222222222222222222222222222222222222222",
+					},
 				},
-				{
-					Key: "notes/2026-report/style.css", RelativePath: "style.css",
-					Size: 30, ETag: `"seed-etag-css"`, ModifiedAt: "2025-12-31T10:00:00Z",
-					ContentType: "text/css", SHA256: "2222222222222222222222222222222222222222222222222222222222222222",
-				},
-			},
-		},
+			}},
+		}},
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "seedcatalog: %v\n", err)

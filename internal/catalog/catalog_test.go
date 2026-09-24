@@ -136,47 +136,83 @@ func TestMigrateRefusesHeldCatalog(t *testing.T) {
 	}
 }
 
-func TestAdoptCommitAndRestartPreservesState(t *testing.T) {
+func TestAdoptBatchCommitAndRestartPreservesState(t *testing.T) {
 	path := migrateFresh(t)
 	store := openStore(t, path)
 
-	input := CommitAdoptionInput{
+	input := CommitAdoptionBatchInput{
 		OperationID: NewID(),
 		RequestHash: "request-hash-1",
 		PlanDigest:  "sha256:plan-digest-1",
-		Publication: AdoptedPublication{
-			ProjectPrefix:    "notes",
-			ProjectDisplay:   "Notes",
-			PublicationPath:  "notes/2026-report",
-			DisplayName:      "2026 Report",
-			EntryPoint:       "notes/2026-report/index.html",
-			RoutingMode:      "directory_index",
-			ContentChangedAt: "2026-01-02T03:04:05Z",
-			Objects: []AdoptedObject{
-				{
-					Key: "notes/2026-report/index.html", RelativePath: "index.html",
-					Size: 120, ETag: `"abc123"`, ModifiedAt: "2026-01-02T03:04:05Z",
-					ContentType: "text/html", SHA256: fakeSHA("aa"),
-					UserMetadata: map[string]string{"owner": "operator"},
+		Projects: []AdoptedProject{
+			{
+				Prefix:      "notes",
+				DisplayName: "Notes",
+				Publications: []AdoptedPublication{
+					{
+						Path:             "notes/2026-report",
+						DisplayName:      "2026 Report",
+						EntryPoint:       "notes/2026-report/index.html",
+						RoutingMode:      "directory_index",
+						ContentChangedAt: "2026-01-02T03:04:05Z",
+						Objects: []AdoptedObject{
+							{
+								Key: "notes/2026-report/index.html", RelativePath: "index.html",
+								Size: 120, ETag: `"abc123"`, ModifiedAt: "2026-01-02T03:04:05Z",
+								ContentType: "text/html", SHA256: fakeSHA("aa"),
+								UserMetadata: map[string]string{"owner": "operator"},
+							},
+							{
+								Key: "notes/2026-report/style.css", RelativePath: "style.css",
+								Size: 30, ETag: `"def456"`, ModifiedAt: "2026-01-01T00:00:00Z",
+								ContentType: "text/css", SHA256: fakeSHA("bb"),
+							},
+						},
+					},
 				},
-				{
-					Key: "notes/2026-report/style.css", RelativePath: "style.css",
-					Size: 30, ETag: `"def456"`, ModifiedAt: "2026-01-01T00:00:00Z",
-					ContentType: "text/css", SHA256: fakeSHA("bb"),
+			},
+			{
+				Prefix:      "docs",
+				DisplayName: "docs",
+				Publications: []AdoptedPublication{
+					{
+						Path:             "docs",
+						DisplayName:      "Annual-Report.TXT",
+						EntryPoint:       "docs/Annual-Report.TXT",
+						RoutingMode:      "exact_file",
+						ContentChangedAt: "2025-06-01T00:00:00Z",
+						Objects: []AdoptedObject{
+							{
+								Key: "docs/Annual-Report.TXT", RelativePath: "Annual-Report.TXT",
+								Size: 40, ETag: `"ghi789"`, ModifiedAt: "2025-06-01T00:00:00Z",
+								ContentType: "text/plain", SHA256: fakeSHA("ee"),
+							},
+						},
+					},
 				},
 			},
 		},
 	}
 
-	result, err := store.CommitAdoption(input)
+	result, err := store.CommitAdoptionBatch(input)
 	if err != nil {
-		t.Fatalf("CommitAdoption() error = %v", err)
+		t.Fatalf("CommitAdoptionBatch() error = %v", err)
 	}
-	if result.Status != "committed" || result.ObjectCount != 2 || result.AcceptedSize != 150 {
+	if result.Status != "committed" || result.ObjectCount != 3 || result.AcceptedSize != 190 {
 		t.Fatalf("result = %+v", result)
 	}
-	if result.ProjectID == "" || result.PublicationID == "" || result.ManifestRevisionID == "" {
-		t.Fatalf("result is missing identities: %+v", result)
+	if len(result.Projects) != 2 {
+		t.Fatalf("result projects = %+v", result.Projects)
+	}
+	for _, project := range result.Projects {
+		if project.ProjectID == "" {
+			t.Fatalf("result project is missing an identity: %+v", project)
+		}
+		for _, publication := range project.Publications {
+			if publication.PublicationID == "" || publication.ManifestRevisionID == "" {
+				t.Fatalf("result publication is missing an identity: %+v", publication)
+			}
+		}
 	}
 
 	record, found, err := store.FindOperation(input.OperationID)
@@ -194,10 +230,18 @@ func TestAdoptCommitAndRestartPreservesState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inventory() error = %v", err)
 	}
-	if len(inventory) != 1 {
-		t.Fatalf("inventory has %d projects, want 1", len(inventory))
+	if len(inventory) != 2 {
+		t.Fatalf("inventory has %d projects, want 2", len(inventory))
 	}
 	project := inventory[0]
+	if project.Prefix != "docs" || len(project.Publications) != 1 {
+		t.Fatalf("project = %+v", project)
+	}
+	rootPublication := project.Publications[0]
+	if rootPublication.Path != "docs" || rootPublication.EntryPoint != "docs/Annual-Report.TXT" || rootPublication.RoutingMode != "exact_file" {
+		t.Fatalf("root publication = %+v", rootPublication)
+	}
+	project = inventory[1]
 	if project.Prefix != "notes" || len(project.Publications) != 1 {
 		t.Fatalf("project = %+v", project)
 	}
@@ -210,50 +254,121 @@ func TestAdoptCommitAndRestartPreservesState(t *testing.T) {
 	}
 }
 
-func TestCommitAdoptionIsAtomic(t *testing.T) {
+func TestCommitAdoptionBatchAcceptsSharedProjectInOneTransaction(t *testing.T) {
 	path := migrateFresh(t)
 	store := openStore(t, path)
 
-	// Pre-record the operation ID with different content: the commit must fail
-	// and leave no project, publication, or manifest behind.
-	seedInput := CommitAdoptionInput{
-		OperationID: "op-1", RequestHash: "seed", PlanDigest: "sha256:seed",
-		Publication: AdoptedPublication{
-			ProjectPrefix: "seeded", ProjectDisplay: "Seeded", PublicationPath: "seeded/site",
-			EntryPoint: "seeded/site/index.html", RoutingMode: "fallback",
-			ContentChangedAt: "2026-01-01T00:00:00Z",
-			Objects:          []AdoptedObject{{Key: "seeded/site/index.html", RelativePath: "index.html", SHA256: fakeSHA("cc")}},
+	publication := func(path string) AdoptedPublication {
+		return AdoptedPublication{
+			Path: path, DisplayName: path, EntryPoint: path + "/index.html",
+			RoutingMode: "fallback", ContentChangedAt: "2026-01-01T00:00:00Z",
+			Objects: []AdoptedObject{{Key: path + "/index.html", RelativePath: "index.html", Size: 10, SHA256: fakeSHA(path)}},
+		}
+	}
+	input := CommitAdoptionBatchInput{
+		OperationID: "op-batch", RequestHash: "h", PlanDigest: "sha256:d",
+		Projects: []AdoptedProject{{
+			Prefix: "guides", DisplayName: "guides",
+			Publications: []AdoptedPublication{publication("guides/a"), publication("guides/b")},
+		}},
+	}
+	result, err := store.CommitAdoptionBatch(input)
+	if err != nil {
+		t.Fatalf("CommitAdoptionBatch() error = %v", err)
+	}
+	if len(result.Projects) != 1 || len(result.Projects[0].Publications) != 2 {
+		t.Fatalf("result = %+v", result)
+	}
+	if result.ObjectCount != 2 || result.AcceptedSize != 20 {
+		t.Fatalf("result = %+v", result)
+	}
+
+	store.Close()
+	reopened := openStore(t, path)
+	inventory, err := reopened.Inventory(context.Background())
+	if err != nil {
+		t.Fatalf("Inventory() error = %v", err)
+	}
+	if len(inventory) != 1 || inventory[0].Prefix != "guides" || len(inventory[0].Publications) != 2 {
+		t.Fatalf("inventory = %+v", inventory)
+	}
+}
+
+func TestCommitAdoptionBatchRejectsIncompleteInput(t *testing.T) {
+	path := migrateFresh(t)
+	store := openStore(t, path)
+	publication := AdoptedPublication{
+		Path: "docs/handbook", EntryPoint: "docs/handbook/index.html", RoutingMode: "directory_index",
+		ContentChangedAt: "2026-01-01T00:00:00Z",
+		Objects:          []AdoptedObject{{Key: "docs/handbook/index.html", RelativePath: "index.html", SHA256: fakeSHA("dd")}},
+	}
+	cases := map[string]CommitAdoptionBatchInput{
+		"no projects": {OperationID: "op-1", Projects: nil},
+		"project without publications": {
+			OperationID: "op-2", Projects: []AdoptedProject{{Prefix: "docs", DisplayName: "docs"}},
+		},
+		"project without prefix": {
+			OperationID: "op-3", Projects: []AdoptedProject{{DisplayName: "docs", Publications: []AdoptedPublication{publication}}},
+		},
+		"duplicate project prefixes": {
+			OperationID: "op-4",
+			Projects: []AdoptedProject{
+				{Prefix: "docs", Publications: []AdoptedPublication{publication}},
+				{Prefix: "docs", Publications: []AdoptedPublication{publication}},
+			},
+		},
+		"duplicate publication paths": {
+			OperationID: "op-5",
+			Projects:    []AdoptedProject{{Prefix: "docs", Publications: []AdoptedPublication{publication, publication}}},
 		},
 	}
-	if _, err := store.CommitAdoption(seedInput); err != nil {
-		t.Fatalf("seed CommitAdoption() error = %v", err)
+	for name, input := range cases {
+		if _, err := store.CommitAdoptionBatch(input); err == nil {
+			t.Errorf("%s: CommitAdoptionBatch() should fail", name)
+		}
+	}
+	var projects int
+	if err := store.db.QueryRow(`SELECT COUNT(*) FROM projects`).Scan(&projects); err != nil || projects != 0 {
+		t.Fatalf("rejected batches left %d projects behind (%v)", projects, err)
+	}
+}
+
+func TestCommitAdoptionBatchIsAtomic(t *testing.T) {
+	path := migrateFresh(t)
+	store := openStore(t, path)
+
+	publication := func(prefix, name string) AdoptedPublication {
+		path := prefix + "/" + name
+		return AdoptedPublication{
+			Path: path, EntryPoint: path + "/index.html", RoutingMode: "fallback",
+			ContentChangedAt: "2026-01-01T00:00:00Z",
+			Objects:          []AdoptedObject{{Key: path + "/index.html", RelativePath: "index.html", SHA256: fakeSHA(name)}},
+		}
 	}
 
-	clashing := CommitAdoptionInput{
-		OperationID: "op-1", RequestHash: "different", PlanDigest: "sha256:other",
-		Publication: seedInput.Publication,
-	}
-	// Same publication content but the same prefix already exists; the clash
-	// must roll everything back.
-	clashing.Publication.ProjectPrefix = "other-project"
-	clashing.Publication.PublicationPath = "other-project/site"
-
-	operationID := "op-2"
-	duplicate := seedInput
-	duplicate.OperationID = operationID
-	// Make a late insert fail: reuse an existing operation ID recorded with
-	// different content by inserting it first.
+	// Pre-record the operation ID with different content: the commit must fail
+	// and leave no project, publication, or manifest behind.
 	if _, err := store.db.Exec(`INSERT INTO adoption_operations (operation_id, request_hash, plan_digest, status, result_json, created_at)
-		VALUES ('op-2', 'x', 'y', 'committed', '{}', 'now')`); err != nil {
+		VALUES ('op-1', 'x', 'y', 'committed', '{}', 'now')`); err != nil {
 		t.Fatalf("seed operation: %v", err)
 	}
-	if _, err := store.CommitAdoption(duplicate); err == nil {
-		t.Fatal("CommitAdoption() with an existing operation ID should fail")
+
+	// The batch carries one new project alongside the clashing operation ID;
+	// the late failure must roll the complete batch back.
+	clashing := CommitAdoptionBatchInput{
+		OperationID: "op-1", RequestHash: "different", PlanDigest: "sha256:other",
+		Projects: []AdoptedProject{
+			{Prefix: "seeded", DisplayName: "Seeded", Publications: []AdoptedPublication{publication("seeded", "site")}},
+			{Prefix: "other-project", DisplayName: "Other", Publications: []AdoptedPublication{publication("other-project", "site")}},
+		},
+	}
+	if _, err := store.CommitAdoptionBatch(clashing); err == nil {
+		t.Fatal("CommitAdoptionBatch() with an existing operation ID should fail")
 	}
 
 	var projects, publications, manifests int
-	if err := store.db.QueryRow(`SELECT COUNT(*) FROM projects WHERE prefix = 'seeded-x'`).Scan(&projects); err != nil || projects != 0 {
-		t.Fatalf("a failed commit left %d projects behind (%v)", projects, err)
+	if err := store.db.QueryRow(`SELECT COUNT(*) FROM projects`).Scan(&projects); err != nil || projects != 0 {
+		t.Fatalf("a failed batch commit left %d projects behind (%v)", projects, err)
 	}
 	if err := store.db.QueryRow(`SELECT COUNT(*) FROM publications`).Scan(&publications); err != nil {
 		t.Fatalf("count publications: %v", err)
@@ -261,39 +376,77 @@ func TestCommitAdoptionIsAtomic(t *testing.T) {
 	if err := store.db.QueryRow(`SELECT COUNT(*) FROM manifest_revisions`).Scan(&manifests); err != nil {
 		t.Fatalf("count manifests: %v", err)
 	}
-	if publications != 1 || manifests != 1 {
-		t.Fatalf("unrelated seed state changed: %d publications, %d manifests", publications, manifests)
+	if publications != 0 || manifests != 0 {
+		t.Fatalf("a failed batch commit left state behind: %d publications, %d manifests", publications, manifests)
+	}
+
+	// A failure after partial inserts must roll the complete batch back:
+	// drop the manifest table so the first manifest-object insert fails after
+	// the project and publication rows are already written.
+	if _, err := store.db.Exec(`DROP TABLE manifest_objects`); err != nil {
+		t.Fatalf("drop manifest_objects: %v", err)
+	}
+	midBatch := CommitAdoptionBatchInput{
+		OperationID: "op-3", RequestHash: "h", PlanDigest: "sha256:d",
+		Projects: []AdoptedProject{
+			{Prefix: "crash", DisplayName: "Crash", Publications: []AdoptedPublication{publication("crash", "site")}},
+		},
+	}
+	if _, err := store.CommitAdoptionBatch(midBatch); err == nil {
+		t.Fatal("a mid-transaction insert failure should fail the batch")
+	}
+	if err := store.db.QueryRow(`SELECT COUNT(*) FROM projects`).Scan(&projects); err != nil || projects != 0 {
+		t.Fatalf("a mid-transaction failure left %d projects behind (%v)", projects, err)
+	}
+	if err := store.db.QueryRow(`SELECT COUNT(*) FROM publications`).Scan(&publications); err != nil || publications != 0 {
+		t.Fatalf("a mid-transaction failure left %d publications behind (%v)", publications, err)
 	}
 }
 
-func TestCommitAdoptionRejectsExistingPaths(t *testing.T) {
+func TestCommitAdoptionBatchRejectsExistingPaths(t *testing.T) {
 	path := migrateFresh(t)
 	store := openStore(t, path)
-	base := CommitAdoptionInput{
-		OperationID: "op-a", RequestHash: "h", PlanDigest: "sha256:d",
-		Publication: AdoptedPublication{
-			ProjectPrefix: "docs", ProjectDisplay: "Docs", PublicationPath: "docs/handbook",
-			EntryPoint: "docs/handbook/index.html", RoutingMode: "directory_index",
+	publication := func(prefix, name string) AdoptedPublication {
+		path := prefix + "/" + name
+		return AdoptedPublication{
+			Path: path, EntryPoint: path + "/index.html", RoutingMode: "directory_index",
 			ContentChangedAt: "2026-01-01T00:00:00Z",
-			Objects:          []AdoptedObject{{Key: "docs/handbook/index.html", RelativePath: "index.html", SHA256: fakeSHA("dd")}},
-		},
+			Objects:          []AdoptedObject{{Key: path + "/index.html", RelativePath: "index.html", SHA256: fakeSHA(name)}},
+		}
 	}
-	if _, err := store.CommitAdoption(base); err != nil {
-		t.Fatalf("CommitAdoption() error = %v", err)
+	base := CommitAdoptionBatchInput{
+		OperationID: "op-a", RequestHash: "h", PlanDigest: "sha256:d",
+		Projects: []AdoptedProject{{Prefix: "docs", DisplayName: "Docs", Publications: []AdoptedPublication{publication("docs", "handbook")}}},
+	}
+	if _, err := store.CommitAdoptionBatch(base); err != nil {
+		t.Fatalf("CommitAdoptionBatch() error = %v", err)
 	}
 
-	samePrefix := base
-	samePrefix.OperationID = "op-b"
-	samePrefix.Publication.PublicationPath = "docs/other"
-	if _, err := store.CommitAdoption(samePrefix); err == nil {
+	// A batch mixing an already-managed prefix with a new project fails and
+	// leaves the new project unaccepted.
+	samePrefix := CommitAdoptionBatchInput{
+		OperationID: "op-b", RequestHash: "h", PlanDigest: "sha256:d",
+		Projects: []AdoptedProject{
+			{Prefix: "docs", DisplayName: "Docs", Publications: []AdoptedPublication{publication("docs", "other")}},
+			{Prefix: "fresh", DisplayName: "Fresh", Publications: []AdoptedPublication{publication("fresh", "site")}},
+		},
+	}
+	if _, err := store.CommitAdoptionBatch(samePrefix); err == nil {
 		t.Fatal("adopting an existing project prefix should fail")
 	}
 
 	samePath := base
 	samePath.OperationID = "op-c"
-	samePath.Publication.ProjectPrefix = "other"
-	if _, err := store.CommitAdoption(samePath); err == nil {
+	samePath.Projects = []AdoptedProject{
+		{Prefix: "other", DisplayName: "Other", Publications: []AdoptedPublication{publication("docs", "handbook")}},
+	}
+	if _, err := store.CommitAdoptionBatch(samePath); err == nil {
 		t.Fatal("adopting an existing publication path should fail")
+	}
+
+	var fresh int
+	if err := store.db.QueryRow(`SELECT COUNT(*) FROM projects WHERE prefix = 'fresh'`).Scan(&fresh); err != nil || fresh != 0 {
+		t.Fatalf("rejected batches left %d fresh projects behind (%v)", fresh, err)
 	}
 }
 
@@ -307,17 +460,19 @@ func TestInventoryIncludesEmptyProjectsAndSortsCaseInsensitively(t *testing.T) {
 		if publicationPath == "" {
 			publicationPath = prefix + "/placeholder"
 		}
-		_, err := store.CommitAdoption(CommitAdoptionInput{
+		_, err := store.CommitAdoptionBatch(CommitAdoptionBatchInput{
 			OperationID: operationID, RequestHash: operationID, PlanDigest: "sha256:" + operationID,
-			Publication: AdoptedPublication{
-				ProjectPrefix: prefix, ProjectDisplay: display, PublicationPath: publicationPath,
-				DisplayName: pubDisplay, EntryPoint: publicationPath + "/index.html",
-				RoutingMode: "directory_index", ContentChangedAt: "2026-01-01T00:00:00Z",
-				Objects: []AdoptedObject{{Key: publicationPath + "/index.html", RelativePath: "index.html", Size: 5, SHA256: fakeSHA("ee")}},
-			},
+			Projects: []AdoptedProject{{
+				Prefix: prefix, DisplayName: display,
+				Publications: []AdoptedPublication{{
+					Path: publicationPath, DisplayName: pubDisplay, EntryPoint: publicationPath + "/index.html",
+					RoutingMode: "directory_index", ContentChangedAt: "2026-01-01T00:00:00Z",
+					Objects: []AdoptedObject{{Key: publicationPath + "/index.html", RelativePath: "index.html", Size: 5, SHA256: fakeSHA("ee")}},
+				}},
+			}},
 		})
 		if err != nil {
-			t.Fatalf("CommitAdoption(%s) error = %v", operationID, err)
+			t.Fatalf("CommitAdoptionBatch(%s) error = %v", operationID, err)
 		}
 	}
 

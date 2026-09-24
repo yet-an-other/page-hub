@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/yet-an-other/page-hub/internal/catalog"
 	"github.com/yet-an-other/page-hub/internal/storage"
@@ -18,53 +19,73 @@ type CommitResult struct {
 	Replayed bool
 }
 
-// Commit accepts an approved plan into the catalog:
+// CommitInput carries everything one commit needs. The approved plan binds
+// the public base URL; ExpectedPublicBaseURL, when set, must match it so a
+// commit can never recheck the batch against a different origin than the one
+// the operator approved.
+type CommitInput struct {
+	Reader                storage.Reader
+	Prober                RouteProber
+	Approved              Plan
+	OperationID           string
+	CatalogPath           string
+	ExpectedPublicBaseURL string
+}
+
+// Commit accepts an approved batch plan into the catalog:
 //
 //  1. verifies the approved plan document is intact (digest over content);
 //  2. takes the exclusive catalog lock, refusing to run while the Page Hub
 //     runtime holds the catalog;
 //  3. returns the durable result when the operation ID was already committed
 //     with identical content, and fails when its content differs;
-//  4. rechecks the candidate against storage immediately before the catalog
-//     transaction, rejecting the plan when anything changed;
-//  5. accepts the declared Project, Publication, and immutable initial
+//  4. rechecks the complete batch against storage and the public routes
+//     immediately before the catalog transaction, rejecting the plan when
+//     any object, metadata value, key set, or probe result changed;
+//  5. accepts every declared Project, Publication, and immutable initial
 //     manifest in exactly one transaction.
 //
 // Commit never issues a storage write, copy, or delete request.
-func Commit(ctx context.Context, reader storage.Reader, approved Plan, operationID, catalogPath string) (CommitResult, error) {
+func Commit(ctx context.Context, input CommitInput) (CommitResult, error) {
+	approved := input.Approved
 	if err := approved.Verify(); err != nil {
 		return CommitResult{}, fmt.Errorf("approved plan is not intact: %w", err)
 	}
 	if err := approved.Content.Declaration.Validate(); err != nil {
 		return CommitResult{}, fmt.Errorf("approved declaration is invalid: %w", err)
 	}
-	if len(approved.Content.Publications) != 1 {
-		return CommitResult{}, fmt.Errorf("this release adopts exactly one declared publication, plan declares %d", len(approved.Content.Publications))
-	}
-	if operationID == "" {
+	if input.OperationID == "" {
 		return CommitResult{}, fmt.Errorf("an operation ID is required")
 	}
+	if input.Reader == nil || input.Prober == nil {
+		return CommitResult{}, fmt.Errorf("a storage reader and public-route prober are required")
+	}
+	if input.ExpectedPublicBaseURL != "" && input.ExpectedPublicBaseURL != approved.Content.PublicBaseURL {
+		return CommitResult{}, fmt.Errorf(
+			"approved plan was generated for public base URL %s, but this command is configured for %s; generate a new plan against the configured origin",
+			approved.Content.PublicBaseURL, input.ExpectedPublicBaseURL)
+	}
 
-	lock, err := catalog.AcquireLock(catalogPath)
+	lock, err := catalog.AcquireLock(input.CatalogPath)
 	if err != nil {
 		return CommitResult{}, err
 	}
 	defer lock.Release()
 
-	store, err := catalog.OpenRuntime(catalogPath)
+	store, err := catalog.OpenRuntime(input.CatalogPath)
 	if err != nil {
 		return CommitResult{}, err
 	}
 	defer store.Close()
 
-	requestHash := RequestHash(operationID, approved.Digest)
-	record, found, err := store.FindOperation(operationID)
+	requestHash := RequestHash(input.OperationID, approved.Digest)
+	record, found, err := store.FindOperation(input.OperationID)
 	if err != nil {
 		return CommitResult{}, err
 	}
 	if found {
 		if record.RequestHash != requestHash {
-			return CommitResult{}, fmt.Errorf("operation ID %q was already used with different content", operationID)
+			return CommitResult{}, fmt.Errorf("operation ID %q was already used with different content", input.OperationID)
 		}
 		var previous catalog.AdoptionResult
 		if err := json.Unmarshal([]byte(record.ResultJSON), &previous); err != nil {
@@ -73,31 +94,22 @@ func Commit(ctx context.Context, reader storage.Reader, approved Plan, operation
 		return CommitResult{Result: previous, Replayed: true}, nil
 	}
 
-	// Recheck the complete candidate immediately before the transaction: any
-	// changed byte, metadata value, or key set invalidates the plan.
-	rechecked, err := BuildPlan(ctx, reader, approved.Content.Declaration)
+	// Recheck the complete batch immediately before the transaction: any
+	// changed byte, metadata value, key set, public-probe result, or
+	// declaration invalidates the plan.
+	rechecked, err := BuildPlan(ctx, input.Reader, input.Prober, approved.Content.PublicBaseURL, approved.Content.Declaration)
 	if err != nil {
-		return CommitResult{}, fmt.Errorf("recheck against storage failed: %w", err)
+		return CommitResult{}, fmt.Errorf("recheck against storage and public routes failed: %w", err)
 	}
 	if rechecked.Digest != approved.Digest {
-		return CommitResult{}, fmt.Errorf("storage drifted from the approved plan (approved %s, observed %s)", approved.Digest, rechecked.Digest)
+		return CommitResult{}, fmt.Errorf("storage or public routes drifted from the approved plan (approved %s, observed %s)", approved.Digest, rechecked.Digest)
 	}
 
-	planned := rechecked.Content.Publications[0]
-	result, err := store.CommitAdoption(catalog.CommitAdoptionInput{
-		OperationID: operationID,
+	result, err := store.CommitAdoptionBatch(catalog.CommitAdoptionBatchInput{
+		OperationID: input.OperationID,
 		RequestHash: requestHash,
 		PlanDigest:  approved.Digest,
-		Publication: catalog.AdoptedPublication{
-			ProjectPrefix:    planned.Project.Prefix,
-			ProjectDisplay:   displayNameOr(planned),
-			PublicationPath:  planned.Path,
-			DisplayName:      planned.DisplayName,
-			EntryPoint:       planned.EntryPoint,
-			RoutingMode:      string(planned.RoutingMode),
-			ContentChangedAt: planned.ContentChangedAt,
-			Objects:          adoptObjects(planned.Objects),
-		},
+		Projects:    adoptProjects(rechecked.Content.Publications),
 	})
 	if err != nil {
 		return CommitResult{}, err
@@ -112,11 +124,38 @@ func RequestHash(operationID, planDigest string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func displayNameOr(planned PlannedPublication) string {
-	if planned.DisplayName != "" {
-		return planned.DisplayName
+// adoptProjects groups the planned publications by declared Project and
+// carries each Project's declared display name, defaulting to the exact
+// prefix.
+func adoptProjects(publications []PlannedPublication) []catalog.AdoptedProject {
+	byPrefix := map[string]*catalog.AdoptedProject{}
+	var prefixes []string
+	for _, planned := range publications {
+		project, ok := byPrefix[planned.Project.Prefix]
+		if !ok {
+			display := planned.Project.DisplayName
+			if display == "" {
+				display = planned.Project.Prefix
+			}
+			project = &catalog.AdoptedProject{Prefix: planned.Project.Prefix, DisplayName: display}
+			byPrefix[planned.Project.Prefix] = project
+			prefixes = append(prefixes, planned.Project.Prefix)
+		}
+		project.Publications = append(project.Publications, catalog.AdoptedPublication{
+			Path:             planned.Path,
+			DisplayName:      planned.DisplayName,
+			EntryPoint:       planned.EntryPoint,
+			RoutingMode:      string(planned.RoutingMode),
+			ContentChangedAt: planned.ContentChangedAt,
+			Objects:          adoptObjects(planned.Objects),
+		})
 	}
-	return planned.Project.Prefix
+	sort.Strings(prefixes)
+	projects := make([]catalog.AdoptedProject, 0, len(prefixes))
+	for _, prefix := range prefixes {
+		projects = append(projects, *byPrefix[prefix])
+	}
+	return projects
 }
 
 func adoptObjects(objects []PlannedObject) []catalog.AdoptedObject {

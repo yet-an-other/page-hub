@@ -13,6 +13,10 @@
       "objects": [
         "guides/getting-started/index.html",
         "guides/getting-started/app.js"
+      ],
+      "probes": [
+        { "path": "", "expectStatus": 200 },
+        { "path": "deep/link", "expectStatus": 404 }
       ]
     }
   ]

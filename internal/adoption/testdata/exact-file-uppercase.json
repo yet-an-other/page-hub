@@ -10,6 +10,9 @@
       "routingMode": "exact_file",
       "objects": [
         "docs/Annual-Report.TXT"
+      ],
+      "probes": [
+        { "path": "", "expectStatus": 200 }
       ]
     }
   ]

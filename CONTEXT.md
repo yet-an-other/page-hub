@@ -27,3 +27,7 @@ _Avoid_: Update, sync, merge
 **Drift**:
 A difference between a Publication's accepted state and its objects as observed in storage. Drift does not change accepted state by itself.
 _Avoid_: Update, accepted change
+
+**Route probe**:
+A declared public-route check: a plain GET of one public URL that must return the expected status. Planning records the observed status, content type, and body digest in the digest-bound plan; committing repeats every probe immediately before the catalog transaction.
+_Avoid_: Health check, ping

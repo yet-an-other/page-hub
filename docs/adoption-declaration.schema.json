@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/yet-an-other/page-hub/main/docs/adoption-declaration.schema.json",
   "title": "Page Hub adoption declaration",
-  "description": "An explicit declaration of the Publications Page Hub should adopt. Page Hub never infers Publication boundaries from storage; every proposed Project prefix, Publication path, object key, entry point, and routing mode is named here. Adopting never writes, copies, or deletes storage objects.",
+  "description": "An explicit declaration of the batch of Publications Page Hub should adopt. Page Hub never infers Publication boundaries from storage; every proposed Project prefix, Publication path, object key, entry point, routing mode, and public-route probe is named here. A batch may mix Projects, multi-object sites, Root Publications, exact-file routing, directory-index routing, and fallback routing. Adopting never writes, copies, or deletes storage objects.",
   "type": "object",
   "required": ["version", "publications"],
   "additionalProperties": false,
@@ -14,13 +14,14 @@
     "publications": {
       "type": "array",
       "minItems": 1,
+      "description": "The complete adoption batch. The operator approves the batch as one unit; any rejected candidate rejects the whole batch.",
       "items": { "$ref": "#/$defs/publication" }
     }
   },
   "$defs": {
     "publication": {
       "type": "object",
-      "required": ["project", "path", "entryPoint", "routingMode", "objects"],
+      "required": ["project", "path", "entryPoint", "routingMode", "objects", "probes"],
       "additionalProperties": false,
       "properties": {
         "project": {
@@ -31,18 +32,18 @@
             "prefix": {
               "type": "string",
               "minLength": 1,
-              "description": "Single top-level path segment owned by the Project. Must not be the reserved '_page-hub'."
+              "description": "Single top-level path segment owned by the Project. Must not be the reserved '_page-hub'. Several Publications may share one Project."
             },
             "displayName": {
               "type": "string",
-              "description": "Optional human display name; defaults to the publication path's last segment."
+              "description": "Optional human display name; defaults to the exact Project prefix."
             }
           }
         },
         "path": {
           "type": "string",
           "minLength": 1,
-          "description": "Exact publication path: the project prefix itself (Root Publication) or a path beneath it. Trailing slashes and '.', '..' segments are rejected."
+          "description": "Exact publication path: the project prefix itself (Root Publication) or a path beside other Publication paths inside the Project. A path nested inside another declared Publication path is rejected as ambiguous. Trailing slashes and '.', '..' segments are rejected."
         },
         "displayName": {
           "type": "string",
@@ -64,8 +65,32 @@
           "items": {
             "type": "string",
             "minLength": 1,
-            "description": "Exact bucket object key: the publication path itself (exact-file Publications) or the publication path plus a relative suffix."
+            "description": "Exact bucket object key: the publication path itself (exact-file Publications) or the publication path plus a relative suffix. During adoption the batch must cover the complete bucket; any undeclared object stops planning."
           }
+        },
+        "probes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/probe" },
+          "description": "Public routes whose behavior adoption must preserve. Planning performs every probe, records the observed status, content type, and body digest in the digest-bound plan, and rejects the plan when an observed status differs from the expected one. Committing repeats the probes immediately before the catalog transaction."
+        }
+      }
+    },
+    "probe": {
+      "type": "object",
+      "required": ["path", "expectStatus"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Probe path relative to the publication path. The empty string addresses the publication path itself; anything else is one or more clean relative segments beneath it."
+        },
+        "expectStatus": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 599,
+          "description": "The HTTP status the public route must return for adoption to preserve declared behavior."
         }
       }
     }

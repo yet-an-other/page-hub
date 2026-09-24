@@ -27,9 +27,18 @@ type ProjectDeclaration struct {
 	DisplayName string `json:"displayName,omitempty"`
 }
 
+// RouteProbe declares one public-route check: a plain GET of the canonical
+// public URL joined with the relative probe path must return the expected
+// status. The probe path "" addresses the Publication path itself.
+type RouteProbe struct {
+	Path         string `json:"path"`
+	ExpectStatus int    `json:"expectStatus"`
+}
+
 // PublicationDeclaration declares one adoption candidate: the Project it
-// belongs to, its path, entry point, routing behavior, and exact object set.
-// Page Hub never infers Publication boundaries from storage.
+// belongs to, its path, entry point, routing behavior, exact object set, and
+// the public routes whose behavior adoption must preserve. Page Hub never
+// infers Publication boundaries from storage.
 type PublicationDeclaration struct {
 	Project     ProjectDeclaration `json:"project"`
 	Path        string             `json:"path"`
@@ -37,6 +46,7 @@ type PublicationDeclaration struct {
 	EntryPoint  string             `json:"entryPoint"`
 	RoutingMode RoutingMode        `json:"routingMode"`
 	Objects     []string           `json:"objects"`
+	Probes      []RouteProbe       `json:"probes"`
 }
 
 // Declaration is an explicit adoption batch. The first release adopts exactly
@@ -57,6 +67,7 @@ func (d Declaration) Validate() error {
 		return fmt.Errorf("declaration must contain at least one publication")
 	}
 	seenObjects := map[string]int{}
+	projectDisplayNames := map[string]string{}
 	for index, publication := range d.Publications {
 		if err := publication.Validate(); err != nil {
 			return fmt.Errorf("publication %d: %w", index, err)
@@ -67,8 +78,46 @@ func (d Declaration) Validate() error {
 			}
 			seenObjects[key] = index
 		}
+		if declared, seen := projectDisplayNames[publication.Project.Prefix]; seen {
+			if declared != publication.Project.DisplayName {
+				return fmt.Errorf("publication %d: project %q is declared with conflicting display names %q and %q",
+					index, publication.Project.Prefix, declared, publication.Project.DisplayName)
+			}
+		} else {
+			projectDisplayNames[publication.Project.Prefix] = publication.Project.DisplayName
+		}
+	}
+	if err := checkBoundaries(d.Publications); err != nil {
+		return err
 	}
 	return nil
+}
+
+// checkBoundaries rejects declared Publication paths that overlap: identical
+// paths, and a path nested inside another, make Publication boundaries and
+// served routes ambiguous. Adoption must be able to assign every object and
+// every public route to exactly one Publication.
+func checkBoundaries(publications []PublicationDeclaration) error {
+	for i := 0; i < len(publications); i++ {
+		for j := i + 1; j < len(publications); j++ {
+			outer, inner := publications[i].Path, publications[j].Path
+			switch {
+			case outer == inner:
+				return fmt.Errorf("publication path %q is declared twice; boundaries are ambiguous", outer)
+			case isSegmentPrefix(outer, inner):
+				return fmt.Errorf("ambiguous Publication boundary: %q is nested inside %q", inner, outer)
+			case isSegmentPrefix(inner, outer):
+				return fmt.Errorf("ambiguous Publication boundary: %q is nested inside %q", outer, inner)
+			}
+		}
+	}
+	return nil
+}
+
+// isSegmentPrefix reports whether b lies inside a at a path-segment
+// boundary, so the served route spaces of the two paths overlap.
+func isSegmentPrefix(a, b string) bool {
+	return strings.HasPrefix(b, a+"/")
 }
 
 // Validate checks one declared Publication against the path rules.
@@ -110,7 +159,48 @@ func (p PublicationDeclaration) Validate() error {
 	if !entryDeclared {
 		return fmt.Errorf("entry point %q is not part of the declared object set", p.EntryPoint)
 	}
+	return validateProbes(p.Probes)
+}
+
+// validateProbes requires at least one public-route probe per Publication so
+// adoption always verifies the routes it must preserve.
+func validateProbes(probes []RouteProbe) error {
+	if len(probes) == 0 {
+		return fmt.Errorf("at least one public-route probe is required")
+	}
+	seen := map[string]bool{}
+	for _, probe := range probes {
+		if probe.ExpectStatus < 100 || probe.ExpectStatus > 599 {
+			return fmt.Errorf("probe path %q: expected status %d is not a valid HTTP status", probe.Path, probe.ExpectStatus)
+		}
+		if seen[probe.Path] {
+			return fmt.Errorf("probe path %q is declared twice", probe.Path)
+		}
+		seen[probe.Path] = true
+		if err := validateProbePath(probe.Path); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+// validateProbePath checks a probe path relative to the Publication path.
+// The empty path addresses the Publication path itself; anything else is one
+// or more clean segments beneath it.
+func validateProbePath(path string) error {
+	if path == "" {
+		return nil
+	}
+	if strings.HasPrefix(path, "/") {
+		return fmt.Errorf("probe path %q must be relative to the publication path", path)
+	}
+	if strings.HasSuffix(path, "/") {
+		return fmt.Errorf("probe path %q must not end with a slash", path)
+	}
+	if err := validatePathSegments("probe path", path); err != nil {
+		return err
+	}
+	return validateKeyCharacters("probe path", path)
 }
 
 // DisplayName returns the declared display name or a sensible default derived
@@ -148,11 +238,8 @@ func validatePath(prefix, path string) error {
 	if strings.HasSuffix(path, "/") {
 		return fmt.Errorf("publication path %q must not end with a slash", path)
 	}
-	for _, segment := range strings.Split(path, "/") {
-		switch segment {
-		case "", ".", "..":
-			return fmt.Errorf("publication path %q contains an empty, '.', or '..' segment", path)
-		}
+	if err := validatePathSegments("publication path", path); err != nil {
+		return err
 	}
 	return validateKeyCharacters("publication path", path)
 }
@@ -165,13 +252,22 @@ func validateObjectKey(path, key string) error {
 	if !ok || relative == "" {
 		return fmt.Errorf("object key %q must be the publication path %q or an object beneath it", key, path)
 	}
-	for _, segment := range strings.Split(relative, "/") {
-		switch segment {
-		case "", ".", "..":
-			return fmt.Errorf("object key %q contains an empty, '.', or '..' segment", key)
-		}
+	if err := validatePathSegments("object key", key); err != nil {
+		return err
 	}
 	return validateKeyCharacters("object key", key)
+}
+
+// validatePathSegments rejects empty, '.', and '..' segments in a slash-
+// separated path. The what argument names the value in error messages.
+func validatePathSegments(what, value string) error {
+	for _, segment := range strings.Split(value, "/") {
+		switch segment {
+		case "", ".", "..":
+			return fmt.Errorf("%s %q contains an empty, '.', or '..' segment", what, value)
+		}
+	}
+	return nil
 }
 
 // validateKeyCharacters rejects whitespace and characters that make exact
@@ -186,6 +282,21 @@ func validateKeyCharacters(what, value string) error {
 		return fmt.Errorf("%s must not be blank", what)
 	}
 	return nil
+}
+
+// CanonicalURL joins the public base URL with a Publication path. The base
+// URL must already be normalized (no trailing slash).
+func CanonicalURL(baseURL, publicationPath string) string {
+	return baseURL + "/" + publicationPath
+}
+
+// ProbeURL joins the Publication's canonical public URL with a relative
+// probe path. The empty probe path addresses the Publication path itself.
+func ProbeURL(canonicalURL, probePath string) string {
+	if probePath == "" {
+		return canonicalURL
+	}
+	return canonicalURL + "/" + probePath
 }
 
 // RelativePath returns the object's path inside the Publication.

@@ -20,6 +20,36 @@ const (
 	DefaultStorageRegion   = "us-east-1"
 )
 
+// NormalizePublicBaseURL validates a canonical public origin and removes a
+// trailing slash so canonical URLs join deterministically.
+func NormalizePublicBaseURL(raw string) (string, error) {
+	trimmed := strings.TrimSuffix(strings.TrimSpace(raw), "/")
+	if trimmed == "" {
+		return "", errors.New("a public base URL is required to record canonical URLs and run public-route probes")
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil || !parsed.IsAbs() || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return "", fmt.Errorf("public base URL %q must be an absolute http(s) origin", raw)
+	}
+	if parsed.RawQuery != "" || parsed.Fragment != "" || parsed.User != nil {
+		return "", fmt.Errorf("public base URL %q must not contain a query, fragment, or userinfo", raw)
+	}
+	return trimmed, nil
+}
+
+// PublicBaseURLFromEnv reads the canonical public origin from
+// PAGE_HUB_PUBLIC_BASE_URL. The adoption plan and commit commands use it to
+// record canonical public URLs and to probe the declared public routes, so
+// it is required for them even though the running manager does not need it
+// yet.
+func PublicBaseURLFromEnv() (string, error) {
+	normalized, err := NormalizePublicBaseURL(os.Getenv("PAGE_HUB_PUBLIC_BASE_URL"))
+	if err != nil {
+		return "", fmt.Errorf("PAGE_HUB_PUBLIC_BASE_URL is required for plan and commit, such as https://share.bdgn.me: %w", err)
+	}
+	return normalized, nil
+}
+
 // Config is the runtime configuration. Secrets are kept in memory only and
 // are never included in health or manager responses.
 type Config struct {

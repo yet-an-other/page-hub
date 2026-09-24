@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestDevelopmentBypassRequiresLoopbackListener(t *testing.T) {
 	for _, test := range []struct {
@@ -60,5 +63,43 @@ func TestProductionRequiresACatalogPath(t *testing.T) {
 	}
 	if err := cfg.Validate(); err == nil {
 		t.Fatal("Validate() succeeded without a catalog path")
+	}
+}
+
+func TestPublicBaseURLFromEnv(t *testing.T) {
+	t.Setenv("PAGE_HUB_PUBLIC_BASE_URL", "")
+	if _, err := PublicBaseURLFromEnv(); err == nil {
+		t.Fatal("PublicBaseURLFromEnv() should fail without PAGE_HUB_PUBLIC_BASE_URL")
+	}
+
+	valid := map[string]string{
+		"canonical origin": "https://share.bdgn.me",
+		"trailing slash":   "https://share.bdgn.me/",
+		"http origin":      "http://127.0.0.1:8080",
+	}
+	for name, value := range valid {
+		t.Setenv("PAGE_HUB_PUBLIC_BASE_URL", value)
+		got, err := PublicBaseURLFromEnv()
+		if err != nil {
+			t.Errorf("%s: PublicBaseURLFromEnv() error = %v", name, err)
+			continue
+		}
+		if strings.HasSuffix(got, "/") {
+			t.Errorf("%s: base URL %q keeps a trailing slash", name, got)
+		}
+	}
+
+	invalid := map[string]string{
+		"relative": "share.bdgn.me",
+		"not http": "ftp://share.bdgn.me",
+		"query":    "https://share.bdgn.me/?x=1",
+		"fragment": "https://share.bdgn.me/#top",
+		"userinfo": "https://user:pass@share.bdgn.me",
+	}
+	for name, value := range invalid {
+		t.Setenv("PAGE_HUB_PUBLIC_BASE_URL", value)
+		if _, err := PublicBaseURLFromEnv(); err == nil {
+			t.Errorf("%s: PublicBaseURLFromEnv() should reject %q", name, value)
+		}
 	}
 }

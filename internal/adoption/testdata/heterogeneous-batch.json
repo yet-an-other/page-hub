@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "publications": [
+    {
+      "project": {
+        "prefix": "guides"
+      },
+      "path": "guides",
+      "entryPoint": "guides/index.html",
+      "routingMode": "fallback",
+      "objects": [
+        "guides/index.html",
+        "guides/assets/style.css"
+      ],
+      "probes": [
+        { "path": "", "expectStatus": 200 },
+        { "path": "anything", "expectStatus": 200 }
+      ]
+    },
+    {
+      "project": {
+        "prefix": "reports"
+      },
+      "path": "reports",
+      "entryPoint": "reports/Index.html",
+      "routingMode": "directory_index",
+      "objects": [
+        "reports/Index.html",
+        "reports/app.js"
+      ],
+      "probes": [
+        { "path": "", "expectStatus": 200 },
+        { "path": "deep/link", "expectStatus": 404 }
+      ]
+    },
+    {
+      "project": {
+        "prefix": "docs"
+      },
+      "path": "docs",
+      "entryPoint": "docs",
+      "routingMode": "exact_file",
+      "objects": [
+        "docs"
+      ],
+      "probes": [
+        { "path": "", "expectStatus": 200 }
+      ]
+    }
+  ]
+}
