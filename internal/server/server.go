@@ -5,6 +5,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"io/fs"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"github.com/yet-an-other/page-hub/internal/config"
+	"github.com/yet-an-other/page-hub/internal/observe"
 	"github.com/yet-an-other/page-hub/internal/storage"
 	"github.com/yet-an-other/page-hub/web"
 )
@@ -29,15 +31,26 @@ type Server struct {
 	config    config.Config
 	checker   storage.Checker
 	inventory InventoryReader
+	refresher Refresher
 	assets    fs.FS
 	public    http.Handler
 }
 
+// Refresher requests storage observations and reports their progress.
+type Refresher interface {
+	Refresh(ctx context.Context) observe.Outcome
+	State() (running bool, lastOutcome observe.Outcome)
+}
+
+// observationStaleAfter marks an observation stale for the manager.
+const observationStaleAfter = 5 * time.Minute
+
 // New creates the manager HTTP handler. The public handler is only considered
 // for non-reserved paths and may be nil when the public reader lives elsewhere.
 // The inventory reader may be nil only when the catalog is absent, in which
-// case the inventory API reports itself unavailable.
-func New(cfg config.Config, checker storage.Checker, inventory InventoryReader, public http.Handler) (*Server, error) {
+// case the inventory API reports itself unavailable. The refresher may be nil,
+// in which case the inventory reports that no observation was requested yet.
+func New(cfg config.Config, checker storage.Checker, inventory InventoryReader, refresher Refresher, public http.Handler) (*Server, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -48,7 +61,7 @@ func New(cfg config.Config, checker storage.Checker, inventory InventoryReader, 
 	if err != nil {
 		return nil, err
 	}
-	return &Server{config: cfg, checker: checker, inventory: inventory, assets: assets, public: public}, nil
+	return &Server{config: cfg, checker: checker, inventory: inventory, refresher: refresher, assets: assets, public: public}, nil
 }
 
 // Handler returns the complete manager/public routing boundary.
@@ -82,6 +95,8 @@ func (s *Server) serveManager(response http.ResponseWriter, request *http.Reques
 		s.serveStatus(response, request)
 	case request.URL.Path == managerPrefix+"api/v1/inventory":
 		s.serveInventory(response, request)
+	case request.URL.Path == managerPrefix+"api/v1/refresh":
+		s.serveRefresh(response, request)
 	case request.URL.Path == managerPrefix+"healthz":
 		s.serveHealth(response, request)
 	case request.URL.Path == managerPrefix+"readyz":

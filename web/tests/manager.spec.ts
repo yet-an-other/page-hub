@@ -53,12 +53,39 @@ test('manager reports exact storage usage from the bucket observation', async ({
   await expect(usage.getByText('Accepted Publications')).toBeVisible()
   await expect(usage.getByText('Unclaimed storage')).toBeVisible()
 
+  // The seeded observation is older than five minutes, so it is stale.
+  await expect(usage.getByText(/This observation is stale/)).toBeVisible()
+
   const api = await page.request.get('/_page-hub/api/v1/inventory')
   const payload = await api.json()
   expect(payload.observation).toMatchObject({
+    stale: true,
     mutationLock: 'none',
     usage: { quotaBytes: 1048576, totalBytes: 150, acceptedBytes: 150, unclaimedBytes: 0 },
   })
+})
+
+test('stale inventory stays readable through a failed refresh', async ({ page }) => {
+  await page.goto('/')
+  const inventory = page.getByRole('region', { name: 'Publication inventory' })
+  const usage = page.getByRole('region', { name: 'Storage usage' })
+  await expect(inventory.getByRole('heading', { name: 'Notes' })).toBeVisible()
+
+  // Storage is unconfigured here, so the refresh fails while every cataloged
+  // value stays on screen.
+  await page.getByRole('button', { name: 'Refresh' }).click()
+  await expect(page.getByRole('alert')).toContainText('The last refresh failed')
+  await expect(page.getByRole('alert')).toContainText('storage misconfigured')
+
+  // Nothing was cleared or replaced by the failed refresh.
+  await expect(inventory.getByText('2026 Report')).toBeVisible()
+  await expect(inventory.getByText('150 B')).toBeVisible()
+  await expect(usage.getByText('1.0 MiB')).toBeVisible()
+  await expect(usage.getByText(/This observation is stale/)).toBeVisible()
+
+  const api = await page.request.post('/_page-hub/api/v1/refresh')
+  expect(api.ok()).toBeTruthy()
+  expect(await api.json()).toMatchObject({ running: false, lastOutcome: 'misconfigured' })
 })
 
 test('manager assets stay below the reserved prefix', async ({ page }) => {
@@ -75,5 +102,7 @@ test('manager assets stay below the reserved prefix', async ({ page }) => {
   })
   expect(status.ok()).toBeTruthy()
   expect(await status.json()).toMatchObject({ storage: { status: 'misconfigured' } })
-  await expect(page.getByText('misconfigured')).toBeVisible({ timeout: 10_000 })
+  // exact match: the badge reads "misconfigured" while refresh warnings only
+  // contain the word.
+  await expect(page.getByText('misconfigured', { exact: true })).toBeVisible({ timeout: 10_000 })
 })

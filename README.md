@@ -59,12 +59,17 @@ batch appears in the manager inventory and survives restarts.
 
 ## Observing storage
 
-After adoption the runtime requests a storage observation in the background at
-startup, and the manager reports how accepted Publications compare with
-storage: each Publication is `in sync`, `drifted`, or `missing`, and the
-manager separates accepted usage from unclaimed storage against the configured
-quota. An ordinary observation lists the bucket and compares exact keys,
-sizes, ETags, modification times, serving metadata, and user metadata; body
+After adoption the observation service requests a storage scan at startup,
+daily, when the inventory opens, and when the operator selects Refresh — and
+only one full scan runs at a time; concurrent triggers join it. Each scan
+reports how accepted Publications compare with storage: each Publication is
+`in sync`, `drifted`, or `missing`, and the manager separates accepted usage
+from unclaimed storage against the configured quota. An observation older
+than five minutes is marked stale; a failed scan keeps the last checked
+values visible with a warning and never substitutes zero, while storage
+outages leave the manager serving its catalog with degraded readiness.
+An ordinary observation lists the bucket and compares exact keys, sizes,
+ETags, modification times, serving metadata, and user metadata; body
 SHA-256 verification happens only when something differs, or when a complete
 reconciliation requests it. Unexpected objects stay unclaimed — Page Hub
 never attaches them to a nearby Publication — and any unclassified finding

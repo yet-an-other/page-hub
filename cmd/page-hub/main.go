@@ -111,30 +111,21 @@ func runServe(args []string) {
 	}
 	defer store.Close()
 
-	application, err := server.New(cfg, storage.NewS3Checker(cfg.Storage), store, nil)
+	shutdownContext, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	// The observation service owns every trigger — startup, daily schedule,
+	// inventory open, and manual refresh — and keeps one full scan running at
+	// a time. A failed scan retries on the retry delay; the manager serves its
+	// catalog throughout, with degraded readiness while storage is unreachable.
+	observations := observe.NewService(storage.NewS3Reader(cfg.Storage), store, observe.ServiceOptions{})
+	observations.Start(shutdownContext)
+
+	application, err := server.New(cfg, storage.NewS3Checker(cfg.Storage), store, observations, nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "page-hub startup error: %v\n", err)
 		os.Exit(2)
 	}
-
-	shutdownContext, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
-	// Request one storage observation in the background so the manager serves
-	// its catalog immediately, even while storage is slow or unavailable. A
-	// failed scan leaves the previous observation in place; the formal refresh
-	// schedule and retries own degraded readiness. Shutdown cancels the scan.
-	go func() {
-		result, err := observe.Run(shutdownContext, storage.NewS3Reader(cfg.Storage), store, observe.Options{})
-		if err != nil {
-			slog.Warn("startup storage observation failed", "status", resultStatus(err))
-			return
-		}
-		slog.Info("startup storage observation complete",
-			"publications", len(result.Publications),
-			"unclaimedObjects", len(result.UnclaimedKeys),
-			"mutationLock", result.MutationLock)
-	}()
 
 	listener, cleanup, err := server.Listen(cfg.ListenAddr)
 	if err != nil {
@@ -307,19 +298,4 @@ func writePlan(encoded []byte, outputPath string) error {
 
 func storageConfigFromEnv() storage.Config {
 	return config.StorageFromEnv()
-}
-
-// resultStatus classifies a failed observation for the log without recording
-// provider details.
-func resultStatus(err error) string {
-	switch {
-	case err == nil:
-		return "ok"
-	case errors.Is(err, storage.ErrStorageUnavailable):
-		return "unavailable"
-	case errors.Is(err, storage.ErrStorageMisconfigured):
-		return "misconfigured"
-	default:
-		return "failed"
-	}
 }

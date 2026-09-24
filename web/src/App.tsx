@@ -1,12 +1,14 @@
-import { useQuery } from '@tanstack/react-query'
+import { useEffect } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { getInventory, getManagerStatus } from './api/client'
+import { getInventory, getManagerStatus, requestRefresh } from './api/client'
 import type { components } from './api/generated'
 import { Badge } from './components/ui/badge'
 import { Card, CardContent, CardHeader } from './components/ui/card'
 
 type BucketObservation = components['schemas']['BucketObservation']
 type PublicationObservation = components['schemas']['PublicationObservation']
+type RefreshState = components['schemas']['RefreshState']
 
 const statusStyles = {
   reachable: 'bg-emerald-100 text-emerald-800',
@@ -25,6 +27,12 @@ const observedLabels = {
   drifted: 'drifted',
   missing: 'missing',
 } as const
+
+const outcomeLabels: Record<string, string> = {
+  unavailable: 'storage unavailable',
+  misconfigured: 'storage misconfigured',
+  failed: 'the scan failed',
+}
 
 function formatBytes(size: number): string {
   if (size < 1024) return `${size} B`
@@ -77,6 +85,11 @@ function UsageCard({ observation }: { observation: BucketObservation }) {
           <UsageRow label="Accepted Publications" value={formatBytes(usage.acceptedBytes)} />
           <UsageRow label="Unclaimed storage" value={formatBytes(usage.unclaimedBytes)} />
         </dl>
+        {observation.stale && (
+          <p className="mt-3 text-xs text-amber-700" role="status">
+            This observation is stale. Page Hub keeps the last checked values until a new scan completes.
+          </p>
+        )}
         {observation.mutationLock !== 'none' && (
           <p className="mt-3 text-xs text-amber-700">
             Storage mutations would be locked ({observation.mutationLock.replace('_', ' ')}) until the findings above are classified.
@@ -103,7 +116,55 @@ function UnavailableUsageCard() {
   )
 }
 
+function refreshWarning(refresh: RefreshState): string | null {
+  if (refresh.running) return null
+  const reason = outcomeLabels[refresh.lastOutcome]
+  if (reason) {
+    return `The last refresh failed (${reason}). The values below come from the last successful scan.`
+  }
+  return null
+}
+
+function RefreshControls({
+  refresh,
+  onRefresh,
+  pending,
+}: {
+  refresh: RefreshState
+  onRefresh: () => void
+  pending: boolean
+}) {
+  const warning = refreshWarning(refresh)
+  const refreshing = pending || refresh.running
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0 text-sm">
+        {refreshing ? (
+          <p className="text-slate-500" role="status">
+            Refreshing storage…
+          </p>
+        ) : warning ? (
+          <p className="text-amber-700" role="alert">
+            {warning}
+          </p>
+        ) : (
+          <p className="text-slate-500">Storage observations run at startup, daily, and when the inventory opens.</p>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={onRefresh}
+        disabled={refreshing}
+        className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-600 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {refreshing ? 'Refreshing…' : 'Refresh'}
+      </button>
+    </div>
+  )
+}
+
 export function App() {
+  const queryClient = useQueryClient()
   const status = useQuery({
     queryKey: ['manager-status'],
     queryFn: getManagerStatus,
@@ -114,10 +175,24 @@ export function App() {
     queryFn: getInventory,
     refetchInterval: 30_000,
   })
+  // Requesting a refresh joins any running scan; a completed refresh makes
+  // the inventory fetch the new observation. Cataloged data stays visible
+  // throughout, whatever the refresh outcome is.
+  const refresh = useMutation({
+    mutationFn: requestRefresh,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['inventory'] }),
+  })
+
+  // Opening the inventory requests a background refresh.
+  useEffect(() => {
+    refresh.mutate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const storageStatus = status.data?.storage.status
   const projects = inventory.data?.projects ?? []
   const observation = inventory.data?.observation ?? undefined
+  const refreshState: RefreshState = inventory.data?.refresh ?? { running: false, lastOutcome: 'never' }
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
@@ -129,6 +204,12 @@ export function App() {
             Manage Publications while the independent public reader keeps serving their canonical URLs.
           </p>
         </header>
+
+        <RefreshControls
+          refresh={refreshState}
+          onRefresh={() => refresh.mutate()}
+          pending={refresh.isPending}
+        />
 
         <section aria-label="Publication inventory" className="flex flex-col gap-4">
           {inventory.isPending && (
@@ -182,7 +263,9 @@ export function App() {
           ))}
         </section>
 
-        {observation ? <UsageCard observation={observation} /> : !inventory.isPending && !inventory.isError && <UnavailableUsageCard />}
+        {observation
+          ? <UsageCard observation={observation} />
+          : !inventory.isPending && !inventory.isError && <UnavailableUsageCard />}
 
         <Card>
           <CardHeader>

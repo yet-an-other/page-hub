@@ -36,6 +36,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/_page-hub/api/v1/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Requests a storage observation. Joins an already running scan instead of queueing another one; answers when the joined scan completes. */
+        post: operations["requestRefresh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/_page-hub/healthz": {
         parameters: {
             query?: never;
@@ -76,6 +93,16 @@ export interface components {
             projects: components["schemas"]["InventoryProject"][];
             /** @description Latest complete bucket observation, or null before the first successful scan. */
             observation: components["schemas"]["BucketObservation"] | null;
+            refresh: components["schemas"]["RefreshState"];
+        };
+        RefreshState: {
+            /** @description Whether a full storage scan is currently running. */
+            running: boolean;
+            /**
+             * @description Outcome of the most recent scan attempt; provider details are never included.
+             * @enum {string}
+             */
+            lastOutcome: "never" | "succeeded" | "unavailable" | "misconfigured" | "failed";
         };
         InventoryProject: {
             id: string;
@@ -116,6 +143,8 @@ export interface components {
              */
             mutationLock: "none" | "global" | "publication";
             usage: components["schemas"]["BucketUsage"];
+            /** @description True when the observation is older than five minutes. */
+            stale: boolean;
         };
         BucketUsage: {
             /**
@@ -203,7 +232,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Catalog-backed inventory of Projects and Publications with the latest bucket observation. */
+            /** @description Catalog-backed inventory of Projects and Publications with the latest bucket observation and refresh progress. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -220,6 +249,40 @@ export interface operations {
                 content?: never;
             };
             /** @description The catalog inventory is unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    requestRefresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current refresh state after the requested (or joined) scan. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefreshState"];
+                };
+            };
+            /** @description Trusted gateway assertion missing or invalid. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The observation service is unavailable. */
             503: {
                 headers: {
                     [name: string]: unknown;

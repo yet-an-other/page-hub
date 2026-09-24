@@ -15,18 +15,18 @@ import (
 )
 
 type fakeInventory struct {
-	inventory catalog.Inventory
-	err       error
+	inventoryValue catalog.Inventory
+	err            error
 }
 
 func (f *fakeInventory) Inventory(ctx context.Context) (catalog.Inventory, error) {
-	return f.inventory, f.err
+	return f.inventoryValue, f.err
 }
 
 var _ server.InventoryReader = (*fakeInventory)(nil)
 
 func TestInventoryRequiresAuthentication(t *testing.T) {
-	app, err := server.New(managerConfig(), &fakeChecker{}, &fakeInventory{}, nil)
+	app, err := server.New(managerConfig(), &fakeChecker{}, &fakeInventory{}, &fakeRefresher{}, nil)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -40,7 +40,7 @@ func TestInventoryRequiresAuthentication(t *testing.T) {
 
 func TestInventoryReturnsCatalogedProjectsWithObservation(t *testing.T) {
 	observedSize := int64(150)
-	inventory := &fakeInventory{inventory: catalog.Inventory{
+	inventory := &fakeInventory{inventoryValue: catalog.Inventory{
 		Projects: []catalog.InventoryProject{{
 			ID:          "project-id",
 			Prefix:      "notes",
@@ -66,7 +66,7 @@ func TestInventoryReturnsCatalogedProjectsWithObservation(t *testing.T) {
 			Usage:        catalog.BucketUsage{TotalBytes: 400, AcceptedBytes: 150, UnclaimedBytes: 250},
 		},
 	}}
-	app, err := server.New(managerConfig(), &fakeChecker{}, inventory, nil)
+	app, err := server.New(managerConfig(), &fakeChecker{}, inventory, &fakeRefresher{}, nil)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -117,12 +117,12 @@ func TestInventoryReturnsCatalogedProjectsWithObservation(t *testing.T) {
 }
 
 func TestInventoryWithoutObservationOmitsIt(t *testing.T) {
-	inventory := &fakeInventory{inventory: catalog.Inventory{
+	inventory := &fakeInventory{inventoryValue: catalog.Inventory{
 		Projects: []catalog.InventoryProject{{
 			ID: "project-id", Prefix: "notes", DisplayName: "Notes",
 		}},
 	}}
-	app, err := server.New(managerConfig(), &fakeChecker{}, inventory, nil)
+	app, err := server.New(managerConfig(), &fakeChecker{}, inventory, &fakeRefresher{}, nil)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -144,7 +144,7 @@ func TestInventoryWithoutObservationOmitsIt(t *testing.T) {
 
 func TestInventoryFailureDoesNotLeakCatalogDetails(t *testing.T) {
 	inventory := &fakeInventory{err: errors.New("secret-path /var/lib/catalog locked: private detail")}
-	app, err := server.New(managerConfig(), &fakeChecker{}, inventory, nil)
+	app, err := server.New(managerConfig(), &fakeChecker{}, inventory, &fakeRefresher{}, nil)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}

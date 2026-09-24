@@ -20,7 +20,7 @@ paths:
       operationId: getInventory
       responses:
         '200':
-          description: Catalog-backed inventory of Projects and Publications with the latest bucket observation.
+          description: Catalog-backed inventory of Projects and Publications with the latest bucket observation and refresh progress.
           content:
             application/json:
               schema:
@@ -29,6 +29,21 @@ paths:
           description: Trusted gateway assertion missing or invalid.
         '503':
           description: The catalog inventory is unavailable.
+  /_page-hub/api/v1/refresh:
+    post:
+      operationId: requestRefresh
+      description: Requests a storage observation. Joins an already running scan instead of queueing another one; answers when the joined scan completes.
+      responses:
+        '200':
+          description: Current refresh state after the requested (or joined) scan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshState'
+        '401':
+          description: Trusted gateway assertion missing or invalid.
+        '503':
+          description: The observation service is unavailable.
   /_page-hub/healthz:
     get:
       operationId: getHealth
@@ -63,7 +78,7 @@ components:
   schemas:
     Inventory:
       type: object
-      required: [projects, observation]
+      required: [projects, observation, refresh]
       properties:
         projects:
           type: array
@@ -74,6 +89,19 @@ components:
           oneOf:
             - $ref: '#/components/schemas/BucketObservation'
             - type: "null"
+        refresh:
+          $ref: '#/components/schemas/RefreshState'
+    RefreshState:
+      type: object
+      required: [running, lastOutcome]
+      properties:
+        running:
+          type: boolean
+          description: Whether a full storage scan is currently running.
+        lastOutcome:
+          type: string
+          enum: [never, succeeded, unavailable, misconfigured, failed]
+          description: Outcome of the most recent scan attempt; provider details are never included.
     InventoryProject:
       type: object
       required: [id, prefix, displayName, description, publications]
@@ -136,7 +164,7 @@ components:
           description: Bounded, deterministic summary of the differences from the accepted manifest.
     BucketObservation:
       type: object
-      required: [observedAt, mutationLock, usage]
+      required: [observedAt, mutationLock, usage, stale]
       properties:
         observedAt:
           type: string
@@ -147,6 +175,9 @@ components:
           description: Storage-mutation lock this observation implies for later storage mutations.
         usage:
           $ref: '#/components/schemas/BucketUsage'
+        stale:
+          type: boolean
+          description: True when the observation is older than five minutes.
     BucketUsage:
       type: object
       required: [quotaBytes, totalBytes, acceptedBytes, unclaimedBytes]

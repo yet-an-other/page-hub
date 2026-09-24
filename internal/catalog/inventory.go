@@ -35,11 +35,13 @@ type InventoryProject struct {
 
 // BucketObservation is the manager-API view of the latest complete bucket
 // observation. Usage.QuotaBytes stays zero here: the manager API attaches the
-// configured quota.
+// configured quota. Stale is computed at read time: an observation older than
+// five minutes is stale.
 type BucketObservation struct {
 	ObservedAt   time.Time   `json:"observedAt"`
 	MutationLock string      `json:"mutationLock"`
 	Usage        BucketUsage `json:"usage"`
+	Stale        bool        `json:"stale"`
 }
 
 // Inventory is the catalog-backed manager view: every Project and Publication
