@@ -216,6 +216,42 @@ func TestSuccessfulServiceRecordsObservationInCatalog(t *testing.T) {
 	}
 }
 
+func TestStartedServiceRunsScansOnItsLifecycleContext(t *testing.T) {
+	reader := newGatingReader()
+	store := serviceStore(t)
+	serviceCtx, cancelService := context.WithCancel(context.Background())
+	defer cancelService()
+	service := observe.NewService(reader, store, observe.ServiceOptions{
+		Now:           fakeNow,
+		DailyInterval: time.Hour,
+		RetryDelay:    time.Hour,
+	})
+	service.Start(serviceCtx)
+
+	// The startup scan runs and completes on the lifecycle context.
+	reader.release <- struct{}{}
+	waitFor(t, time.Second, func() bool {
+		running, _ := service.State()
+		return reader.started.Load() >= 1 && !running
+	})
+
+	// An operator-triggered refresh starts a new scan, then its requester
+	// disconnects. The scan must continue to completion anyway.
+	requestCtx, cancelRequest := context.WithCancel(context.Background())
+	outcome := make(chan observe.Outcome, 1)
+	go func() { outcome <- service.Refresh(requestCtx) }()
+	waitFor(t, time.Second, func() bool { return reader.started.Load() >= 2 })
+	cancelRequest()
+	close(reader.release)
+
+	if got := <-outcome; got != observe.OutcomeSucceeded {
+		t.Fatalf("outcome = %q, want the detached scan to succeed despite the disconnect", got)
+	}
+	if _, ok, err := store.LatestObservation(context.Background()); err != nil || !ok {
+		t.Fatalf("LatestObservation() = ok %v err %v, want the detached scan recorded", ok, err)
+	}
+}
+
 func TestRefreshReportsFailedWhenCatalogUnavailable(t *testing.T) {
 	reader := newGatingReader()
 	reader.release <- struct{}{}

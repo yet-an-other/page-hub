@@ -160,15 +160,22 @@ func (s *Server) serveReady(response http.ResponseWriter, request *http.Request)
 		return
 	}
 	result := s.checker.Check(request.Context())
+	catalogStatus := "unavailable"
+	if s.inventory != nil {
+		if _, err := s.inventory.Inventory(request.Context()); err == nil {
+			catalogStatus = "available"
+		}
+	}
 	status := http.StatusOK
 	readiness := "ready"
-	if result.Status != storage.StatusReachable {
+	if result.Status != storage.StatusReachable || catalogStatus == "unavailable" {
 		status = http.StatusServiceUnavailable
 		readiness = "degraded"
 	}
 	writeJSON(response, request, status, map[string]string{
 		"status":  readiness,
 		"storage": string(result.Status),
+		"catalog": catalogStatus,
 	})
 }
 

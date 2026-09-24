@@ -224,7 +224,7 @@ components:
           type: string
     ReadinessStatus:
       type: object
-      required: [status, storage]
+      required: [status, storage, catalog]
       properties:
         status:
           type: string
@@ -232,3 +232,7 @@ components:
         storage:
           type: string
           enum: [reachable, unavailable, misconfigured]
+        catalog:
+          type: string
+          enum: [available, unavailable]
+          description: A catalog failure prevents readiness.

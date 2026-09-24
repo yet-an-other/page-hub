@@ -175,12 +175,12 @@ export function App() {
     queryFn: getInventory,
     refetchInterval: 30_000,
   })
-  // Requesting a refresh joins any running scan; a completed refresh makes
-  // the inventory fetch the new observation. Cataloged data stays visible
-  // throughout, whatever the refresh outcome is.
+  // Requesting a refresh joins any running scan; when it settles — success
+  // or failure — the inventory refetches so the UI reflects the outcome.
+  // Cataloged data stays visible throughout, whatever the refresh outcome is.
   const refresh = useMutation({
     mutationFn: requestRefresh,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['inventory'] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['inventory'] }),
   })
 
   // Opening the inventory requests a background refresh.

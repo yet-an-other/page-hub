@@ -50,10 +50,13 @@ type ServiceOptions struct {
 	RetryDelay    time.Duration // time between scans after a failure
 }
 
-// Service owns the single in-flight storage observation. Every trigger —
-// startup, daily schedule, inventory open, and manual refresh — goes through
-// Refresh: only one full scan runs at a time and concurrent triggers join it
-// instead of queueing repeated scans.
+// Service owns the single in-flight storage observation. The vocabulary maps
+// one concept across boundaries: "refresh" is the operator-facing action (API
+// and Refresh control), "scan" is one engine run, and the "observation" is the
+// result the catalog records. Every trigger — startup, daily schedule,
+// inventory open, and manual refresh — goes through Refresh: only one full
+// scan runs at a time and concurrent triggers join it instead of queueing
+// repeated scans.
 type Service struct {
 	reader        storage.Reader
 	store         *catalog.Store
@@ -62,6 +65,7 @@ type Service struct {
 	retryDelay    time.Duration
 
 	mu          sync.Mutex
+	serviceCtx  context.Context // set by Start; scans outlive single requests
 	running     chan struct{}
 	lastOutcome Outcome
 }
@@ -90,7 +94,12 @@ func NewService(reader storage.Reader, store *catalog.Store, options ServiceOpti
 // Start runs the observation schedule until the context is cancelled: one
 // scan immediately, then again after retryDelay when the previous scan
 // failed (reconciling a storage outage) or dailyInterval when it succeeded.
+// Scans run on this lifecycle context, so a disconnected browser cannot
+// cancel a scan that other triggers asked for.
 func (s *Service) Start(ctx context.Context) {
+	s.mu.Lock()
+	s.serviceCtx = ctx
+	s.mu.Unlock()
 	go func() {
 		for {
 			outcome := s.Refresh(ctx)
@@ -111,16 +120,14 @@ func (s *Service) Start(ctx context.Context) {
 
 // Refresh requests a storage observation. When a scan is already running it
 // joins that scan and returns its outcome instead of queueing another one.
+// The wait is bounded by the running scan, which storage timeouts bound in
+// turn; the caller's own context cannot cancel work other triggers asked for.
 func (s *Service) Refresh(ctx context.Context) Outcome {
 	s.mu.Lock()
 	if s.running != nil {
 		done := s.running
 		s.mu.Unlock()
-		select {
-		case <-done:
-		case <-ctx.Done():
-			return OutcomeFailed
-		}
+		<-done
 		s.mu.Lock()
 		outcome := s.lastOutcome
 		s.mu.Unlock()
@@ -128,9 +135,13 @@ func (s *Service) Refresh(ctx context.Context) Outcome {
 	}
 	done := make(chan struct{})
 	s.running = done
+	scanCtx := s.serviceCtx
+	if scanCtx == nil {
+		scanCtx = ctx
+	}
 	s.mu.Unlock()
 
-	outcome := s.scan(ctx)
+	outcome := s.scan(scanCtx)
 	if outcome != OutcomeSucceeded {
 		slog.Warn("storage observation failed", "outcome", string(outcome))
 	} else {
@@ -153,16 +164,8 @@ func (s *Service) State() (running bool, last Outcome) {
 }
 
 func (s *Service) scan(ctx context.Context) Outcome {
-	manifests, err := s.store.AcceptedManifests(ctx)
-	if err != nil {
-		return OutcomeFailed
-	}
-	result, err := Scan(ctx, s.reader, manifests, Options{Now: s.now})
-	if err != nil {
-		return OutcomeOf(err)
-	}
-	if err := s.store.RecordObservation(result.Record()); err != nil {
-		return OutcomeFailed
-	}
-	return OutcomeSucceeded
+	// Run is the one-shot observation path; the service adds the schedule and
+	// the single-scan guarantee around it.
+	_, err := Run(ctx, s.reader, s.store, Options{Now: s.now})
+	return OutcomeOf(err)
 }

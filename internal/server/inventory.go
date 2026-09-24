@@ -63,7 +63,9 @@ func (s *Server) serveInventory(response http.ResponseWriter, request *http.Requ
 
 // serveRefresh requests a storage observation. It joins an already running
 // scan instead of queueing another one and answers with the resulting state;
-// cataloged data stays visible the whole time.
+// cataloged data stays visible the whole time. A scan may legitimately take
+// longer than the server's WriteTimeout, so the write deadline is lifted for
+// this one response: it answers when the joined scan completes.
 func (s *Server) serveRefresh(response http.ResponseWriter, request *http.Request) {
 	if !allowMethods(response, request, http.MethodPost) {
 		return
@@ -72,6 +74,7 @@ func (s *Server) serveRefresh(response http.ResponseWriter, request *http.Reques
 		writeJSON(response, request, http.StatusServiceUnavailable, map[string]string{"error": "refresh unavailable"})
 		return
 	}
+	_ = http.NewResponseController(response).SetWriteDeadline(time.Time{})
 	s.refresher.Refresh(request.Context())
 	writeJSON(response, request, http.StatusOK, s.refreshState())
 }

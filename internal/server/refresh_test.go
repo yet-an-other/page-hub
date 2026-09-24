@@ -3,8 +3,10 @@ package server_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -12,6 +14,7 @@ import (
 	"github.com/yet-an-other/page-hub/internal/catalog"
 	"github.com/yet-an-other/page-hub/internal/observe"
 	"github.com/yet-an-other/page-hub/internal/server"
+	"github.com/yet-an-other/page-hub/internal/storage"
 )
 
 type fakeRefresher struct {
@@ -208,5 +211,138 @@ func TestRefreshWithoutRefresherIsUnavailable(t *testing.T) {
 	application.Handler().ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusServiceUnavailable {
 		t.Fatalf("refresh status = %d, want 503", recorder.Code)
+	}
+}
+
+func TestRefreshResponseSurvivesServerWriteTimeout(t *testing.T) {
+	// A scan slower than the server's WriteTimeout must still answer: the
+	// refresh route lifts the write deadline for its own response.
+	refresher := &fakeRefresher{block: make(chan struct{})}
+	application, err := server.New(managerConfig(), &fakeChecker{}, &fakeInventory{}, refresher, nil)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	backend := httptest.NewUnstartedServer(application.Handler())
+	backend.Config.WriteTimeout = 50 * time.Millisecond
+	backend.Start()
+	defer backend.Close()
+
+	type result struct {
+		status int
+		err    error
+	}
+	results := make(chan result, 1)
+	go func() {
+		request, err := http.NewRequest(http.MethodPost, backend.URL+"/_page-hub/api/v1/refresh", nil)
+		if err != nil {
+			results <- result{err: err}
+			return
+		}
+		request.Header.Set("X-Page-Hub-Assertion", "test-only-assertion")
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			results <- result{err: err}
+			return
+		}
+		results <- result{status: response.StatusCode}
+		_ = response.Body.Close()
+	}()
+
+	// Hold the scan well past the write deadline before letting it finish.
+	waitUntil(t, time.Second, func() bool { return refresher.refreshes > 0 })
+	time.Sleep(150 * time.Millisecond)
+	close(refresher.block)
+
+	select {
+	case got := <-results:
+		if got.err != nil {
+			t.Fatalf("refresh request failed: %v", got.err)
+		}
+		if got.status != http.StatusOK {
+			t.Fatalf("refresh status = %d, want 200", got.status)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("refresh response never arrived")
+	}
+}
+
+func waitUntil(t *testing.T, timeout time.Duration, condition func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if condition() {
+			return
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+	t.Fatal("condition was not met in time")
+}
+
+func TestReadinessReportsDegradedWhenCatalogUnavailable(t *testing.T) {
+	application, err := server.New(managerConfig(),
+		&fakeChecker{result: storage.CheckResult{Status: storage.StatusReachable}},
+		&fakeInventory{err: errors.New("catalog disk failure detail")}, nil, nil)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/_page-hub/readyz", nil)
+	request.Header.Set("X-Page-Hub-Assertion", "test-only-assertion")
+	application.Handler().ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("readiness status = %d, want 503", recorder.Code)
+	}
+	var payload struct {
+		Status  string `json:"status"`
+		Storage string `json:"storage"`
+		Catalog string `json:"catalog"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode readiness response: %v", err)
+	}
+	if payload.Status != "degraded" || payload.Catalog != "unavailable" || payload.Storage != "reachable" {
+		t.Fatalf("payload = %+v", payload)
+	}
+	// The failure detail must not leak.
+	if strings.Contains(recorder.Body.String(), "catalog disk failure detail") {
+		t.Fatal("readiness response leaked catalog failure detail")
+	}
+}
+
+func TestReadinessReportsDegradedWhenStorageUnreachable(t *testing.T) {
+	application, err := server.New(managerConfig(),
+		&fakeChecker{result: storage.CheckResult{Status: storage.StatusUnavailable}},
+		&fakeInventory{}, nil, nil)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/_page-hub/readyz", nil)
+	request.Header.Set("X-Page-Hub-Assertion", "test-only-assertion")
+	application.Handler().ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("readiness status = %d, want 503", recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"storage":"unavailable"`) || !strings.Contains(recorder.Body.String(), `"catalog":"available"`) {
+		t.Fatalf("payload = %s", recorder.Body.String())
+	}
+}
+
+func TestReadinessReportsReadyWithHealthyCatalogAndStorage(t *testing.T) {
+	application, err := server.New(managerConfig(),
+		&fakeChecker{result: storage.CheckResult{Status: storage.StatusReachable}},
+		&fakeInventory{}, nil, nil)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/_page-hub/readyz", nil)
+	request.Header.Set("X-Page-Hub-Assertion", "test-only-assertion")
+	application.Handler().ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("readiness status = %d, want 200", recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), `"status":"ready"`) {
+		t.Fatalf("payload = %s", recorder.Body.String())
 	}
 }

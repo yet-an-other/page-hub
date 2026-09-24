@@ -186,6 +186,11 @@ export interface components {
             status: "ready" | "degraded";
             /** @enum {string} */
             storage: "reachable" | "unavailable" | "misconfigured";
+            /**
+             * @description A catalog failure prevents readiness.
+             * @enum {string}
+             */
+            catalog: "available" | "unavailable";
         };
     };
     responses: never;
