@@ -6,18 +6,22 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 )
 
 // InventoryPublication is the catalog-backed view of one managed Publication.
+// Accepted facts come from the current manifest; Observation carries the
+// latest storage comparison and never replaces accepted values.
 type InventoryPublication struct {
-	ID               string `json:"id"`
-	Path             string `json:"path"`
-	DisplayName      string `json:"displayName"`
-	Description      string `json:"description"`
-	EntryPoint       string `json:"entryPoint"`
-	RoutingMode      string `json:"routingMode"`
-	Size             int64  `json:"size"`
-	ContentChangedAt string `json:"contentChangedAt"`
+	ID               string                  `json:"id"`
+	Path             string                  `json:"path"`
+	DisplayName      string                  `json:"displayName"`
+	Description      string                  `json:"description"`
+	EntryPoint       string                  `json:"entryPoint"`
+	RoutingMode      string                  `json:"routingMode"`
+	Size             int64                   `json:"size"`
+	ContentChangedAt string                  `json:"contentChangedAt"`
+	Observation      *PublicationObservation `json:"observation"`
 }
 
 // InventoryProject is the catalog-backed view of one managed Project.
@@ -29,10 +33,36 @@ type InventoryProject struct {
 	Publications []InventoryPublication `json:"publications"`
 }
 
-// Inventory returns every Project with every managed Publication, sorted by
-// display name without case sensitivity, using the exact path as tie-breaker.
-// Empty Projects appear too.
-func (s *Store) Inventory(ctx context.Context) ([]InventoryProject, error) {
+// BucketObservation is the manager-API view of the latest complete bucket
+// observation. Usage.QuotaBytes stays zero here: the manager API attaches the
+// configured quota.
+type BucketObservation struct {
+	ObservedAt   time.Time   `json:"observedAt"`
+	MutationLock string      `json:"mutationLock"`
+	Usage        BucketUsage `json:"usage"`
+}
+
+// Inventory is the catalog-backed manager view: every Project and Publication
+// plus the latest bucket observation, kept separate from accepted state.
+type Inventory struct {
+	Projects    []InventoryProject `json:"projects"`
+	Observation *BucketObservation `json:"observation"`
+}
+
+// Inventory returns every Project with every managed Publication and the
+// latest bucket observation, sorted by display name without case sensitivity,
+// using the exact path as tie-breaker. Empty Projects appear too. A missing
+// observation leaves Observation nil.
+func (s *Store) Inventory(ctx context.Context) (Inventory, error) {
+	latest, found, err := s.LatestObservation(ctx)
+	var publications map[string]PublicationObservation
+	if found {
+		publications = latest.Publications
+	}
+	if err != nil {
+		return Inventory{}, err
+	}
+
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT p.id, p.prefix, p.display_name, p.description,
 		       pub.id, pub.path, pub.display_name, pub.description, pub.entry_point, pub.routing_mode,
@@ -42,7 +72,7 @@ func (s *Store) Inventory(ctx context.Context) ([]InventoryProject, error) {
 		LEFT JOIN publications pub ON pub.project_id = p.id
 		ORDER BY p.prefix, pub.path`)
 	if err != nil {
-		return nil, fmt.Errorf("query inventory: %w", err)
+		return Inventory{}, fmt.Errorf("query inventory: %w", err)
 	}
 	defer rows.Close()
 
@@ -58,7 +88,7 @@ func (s *Store) Inventory(ctx context.Context) ([]InventoryProject, error) {
 			&publicationID, &publicationPath, &publicationDisplay, &publicationDescription,
 			&publicationEntryPoint, &publicationRoutingMode, &publicationChanged, &publicationSize,
 		); err != nil {
-			return nil, fmt.Errorf("scan inventory row: %w", err)
+			return Inventory{}, fmt.Errorf("scan inventory row: %w", err)
 		}
 		project, seen := projects[projectID]
 		if !seen {
@@ -80,20 +110,33 @@ func (s *Store) Inventory(ctx context.Context) ([]InventoryProject, error) {
 			publication.RoutingMode = publicationRoutingMode.String
 			publication.ContentChangedAt = publicationChanged.String
 			publication.Size = publicationSize.Int64
+			if found {
+				if observed, ok := publications[publicationID.String]; ok {
+					observedCopy := observed
+					publication.Observation = &observedCopy
+				}
+			}
 			project.Publications = append(project.Publications, publication)
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate inventory: %w", err)
+		return Inventory{}, fmt.Errorf("iterate inventory: %w", err)
 	}
 
-	inventory := make([]InventoryProject, 0, len(order))
+	inventory := Inventory{Projects: make([]InventoryProject, 0, len(order))}
 	for _, id := range order {
 		project := projects[id]
 		sortPublications(project.Publications)
-		inventory = append(inventory, *project)
+		inventory.Projects = append(inventory.Projects, *project)
 	}
-	sortProjects(inventory)
+	sortProjects(inventory.Projects)
+	if found {
+		inventory.Observation = &BucketObservation{
+			ObservedAt:   latest.ObservedAt,
+			MutationLock: latest.MutationLock,
+			Usage:        latest.Usage,
+		}
+	}
 	return inventory, nil
 }
 

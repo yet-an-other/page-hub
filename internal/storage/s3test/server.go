@@ -122,7 +122,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == http.MethodHead {
-		w.Header().Set("ETag", object.ETag)
+		setObjectHeaders(w, object)
 		w.Header().Set("Content-Length", fmt.Sprint(len(object.Content)))
 		w.WriteHeader(http.StatusOK)
 		return

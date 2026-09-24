@@ -63,6 +63,11 @@ type Config struct {
 
 	CatalogPath string
 
+	// StorageQuotaBytes is the explicitly configured bucket quota. Usage is
+	// always computed from bucket observations, never from a vendor-specific
+	// quota interface.
+	StorageQuotaBytes int64
+
 	Storage storage.Config
 }
 
@@ -89,6 +94,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	quota, err := envInt64("PAGE_HUB_STORAGE_QUOTA_BYTES")
+	if err != nil {
+		return Config{}, err
+	}
 
 	cfg := Config{
 		ListenAddr:          envOr("PAGE_HUB_LISTEN_ADDR", DefaultListenAddr),
@@ -98,6 +107,7 @@ func Load() (Config, error) {
 		AuthLoginURL:        os.Getenv("PAGE_HUB_AUTH_LOGIN_URL"),
 		DevAuthBypass:       devBypass,
 		CatalogPath:         os.Getenv("PAGE_HUB_CATALOG_PATH"),
+		StorageQuotaBytes:   quota,
 		Storage: storage.Config{
 			Endpoint:        os.Getenv("PAGE_HUB_S3_ENDPOINT"),
 			Region:          envOr("PAGE_HUB_S3_REGION", DefaultStorageRegion),
@@ -121,6 +131,9 @@ func (c Config) Validate() error {
 	}
 	if strings.TrimSpace(c.CatalogPath) == "" {
 		return errors.New("PAGE_HUB_CATALOG_PATH is required; point it at the private SQLite catalog")
+	}
+	if c.StorageQuotaBytes <= 0 {
+		return errors.New("PAGE_HUB_STORAGE_QUOTA_BYTES is required: configure the exact bucket quota in bytes; usage is calculated from bucket observations, not a vendor quota interface")
 	}
 	if !validHeaderName(c.AuthAssertionHeader) {
 		return fmt.Errorf("invalid authentication assertion header %q", c.AuthAssertionHeader)
@@ -169,6 +182,19 @@ func envOr(name, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+// envInt64 reads a required positive integer setting.
+func envInt64(name string) (int64, error) {
+	raw := os.Getenv(name)
+	if raw == "" {
+		return 0, fmt.Errorf("%s is required and must be a positive integer number of bytes", name)
+	}
+	parsed, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || parsed <= 0 {
+		return 0, fmt.Errorf("%s must be a positive integer number of bytes, got %q", name, raw)
+	}
+	return parsed, nil
 }
 
 func envBool(name string, fallback bool) (bool, error) {

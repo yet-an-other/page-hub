@@ -27,9 +27,11 @@ test('manager shows the catalog-backed inventory', async ({ page }) => {
   const publication = inventory.getByText('2026 Report')
   await expect(publication).toBeVisible()
   await expect(inventory.getByText('notes/2026-report')).toBeVisible()
+  // The accepted size, not the observed size, is the row value.
   await expect(inventory.getByText('150 B')).toBeVisible()
   await expect(inventory.getByText(/Content changed 2026-01-02/)).toBeVisible()
   await expect(inventory.getByText('directory_index')).toBeVisible()
+  await expect(inventory.getByText('in sync')).toBeVisible()
 
   const api = await page.request.get('/_page-hub/api/v1/inventory')
   expect(api.ok()).toBeTruthy()
@@ -38,6 +40,24 @@ test('manager shows the catalog-backed inventory', async ({ page }) => {
   expect(payload.projects[0]).toMatchObject({
     prefix: 'notes',
     publications: [{ path: 'notes/2026-report', size: 150, routingMode: 'directory_index' }],
+  })
+})
+
+test('manager reports exact storage usage from the bucket observation', async ({ page }) => {
+  await page.goto('/')
+  const usage = page.getByRole('region', { name: 'Storage usage' })
+  await expect(usage).toBeVisible()
+  await expect(usage.getByText('Quota')).toBeVisible()
+  await expect(usage.getByText('1.0 MiB')).toBeVisible()
+  await expect(usage.getByText('Bucket usage')).toBeVisible()
+  await expect(usage.getByText('Accepted Publications')).toBeVisible()
+  await expect(usage.getByText('Unclaimed storage')).toBeVisible()
+
+  const api = await page.request.get('/_page-hub/api/v1/inventory')
+  const payload = await api.json()
+  expect(payload.observation).toMatchObject({
+    mutationLock: 'none',
+    usage: { quotaBytes: 1048576, totalBytes: 150, acceptedBytes: 150, unclaimedBytes: 0 },
   })
 })
 

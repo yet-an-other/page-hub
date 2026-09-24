@@ -270,17 +270,17 @@ func TestCLIAdoptionEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inventory: %v", err)
 	}
-	if len(inventory) != 2 {
+	if len(inventory.Projects) != 2 {
 		t.Fatalf("inventory = %+v, want 2 projects", inventory)
 	}
 	byPrefix := map[string]int{}
-	for index, project := range inventory {
+	for index, project := range inventory.Projects {
 		byPrefix[project.Prefix] = index
 	}
-	if inventory[byPrefix["guides"]].Publications[0].Path != "guides/getting-started" {
-		t.Fatalf("guides publications = %+v", inventory[byPrefix["guides"]].Publications)
+	if inventory.Projects[byPrefix["guides"]].Publications[0].Path != "guides/getting-started" {
+		t.Fatalf("guides publications = %+v", inventory.Projects[byPrefix["guides"]].Publications)
 	}
-	if got := inventory[byPrefix["docs"]].Publications; len(got) != 1 || got[0].Path != "docs" {
+	if got := inventory.Projects[byPrefix["docs"]].Publications; len(got) != 1 || got[0].Path != "docs" {
 		t.Fatalf("docs publications = %+v", got)
 	}
 

@@ -57,8 +57,12 @@ func TestMigrateIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second Migrate() error = %v", err)
 	}
-	if from != 1 || to != 1 {
-		t.Fatalf("second Migrate() = (%d, %d), want (1, 1)", from, to)
+	latest, err := LatestVersion()
+	if err != nil {
+		t.Fatalf("LatestVersion() error = %v", err)
+	}
+	if from != latest || to != latest {
+		t.Fatalf("second Migrate() = (%d, %d), want (%d, %d)", from, to, latest, latest)
 	}
 }
 
@@ -230,10 +234,10 @@ func TestAdoptBatchCommitAndRestartPreservesState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inventory() error = %v", err)
 	}
-	if len(inventory) != 2 {
-		t.Fatalf("inventory has %d projects, want 2", len(inventory))
+	if len(inventory.Projects) != 2 {
+		t.Fatalf("inventory has %d projects, want 2", len(inventory.Projects))
 	}
-	project := inventory[0]
+	project := inventory.Projects[0]
 	if project.Prefix != "docs" || len(project.Publications) != 1 {
 		t.Fatalf("project = %+v", project)
 	}
@@ -241,7 +245,7 @@ func TestAdoptBatchCommitAndRestartPreservesState(t *testing.T) {
 	if rootPublication.Path != "docs" || rootPublication.EntryPoint != "docs/Annual-Report.TXT" || rootPublication.RoutingMode != "exact_file" {
 		t.Fatalf("root publication = %+v", rootPublication)
 	}
-	project = inventory[1]
+	project = inventory.Projects[1]
 	if project.Prefix != "notes" || len(project.Publications) != 1 {
 		t.Fatalf("project = %+v", project)
 	}
@@ -289,7 +293,7 @@ func TestCommitAdoptionBatchAcceptsSharedProjectInOneTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inventory() error = %v", err)
 	}
-	if len(inventory) != 1 || inventory[0].Prefix != "guides" || len(inventory[0].Publications) != 2 {
+	if len(inventory.Projects) != 1 || inventory.Projects[0].Prefix != "guides" || len(inventory.Projects[0].Publications) != 2 {
 		t.Fatalf("inventory = %+v", inventory)
 	}
 }
@@ -489,19 +493,19 @@ func TestInventoryIncludesEmptyProjectsAndSortsCaseInsensitively(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inventory() error = %v", err)
 	}
-	if len(inventory) != 3 {
-		t.Fatalf("inventory has %d projects, want 3: %+v", len(inventory), inventory)
+	if len(inventory.Projects) != 3 {
+		t.Fatalf("inventory has %d projects, want 3: %+v", len(inventory.Projects), inventory)
 	}
 	wantOrder := []string{"alpha project", "Beta archive", "Zeta notes"}
-	for i, project := range inventory {
+	for i, project := range inventory.Projects {
 		if project.DisplayName != wantOrder[i] {
 			t.Fatalf("project %d = %q, want %q", i, project.DisplayName, wantOrder[i])
 		}
 	}
-	if inventory[0].Prefix != "alpha" || len(inventory[0].Publications) != 0 {
-		t.Fatalf("empty project = %+v", inventory[0])
+	if inventory.Projects[0].Prefix != "alpha" || len(inventory.Projects[0].Publications) != 0 {
+		t.Fatalf("empty project = %+v", inventory.Projects[0])
 	}
-	publications := inventory[2].Publications
+	publications := inventory.Projects[2].Publications
 	if len(publications) != 1 || publications[0].DisplayName != "a guide" {
 		t.Fatalf("zeta publications = %+v", publications)
 	}

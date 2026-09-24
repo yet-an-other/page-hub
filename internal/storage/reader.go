@@ -15,12 +15,13 @@ import (
 	"time"
 )
 
-// Reader is the read-only storage seam used by adoption planning and later
-// observation scans. Every method is a read: no write, copy, or delete
+// Reader is the read-only storage seam used by adoption planning and the
+// observation scan. Every method is a read: no write, copy, or delete
 // request can be expressed through this interface.
 type Reader interface {
 	ListObjects(ctx context.Context) ([]ObjectListing, error)
 	ReadObject(ctx context.Context, key string) (ObjectContent, error)
+	StatObject(ctx context.Context, key string) (ObjectMeta, error)
 }
 
 // ObjectListing is one entry of the complete bucket listing.
@@ -221,6 +222,74 @@ func (r *S3Reader) ReadObject(ctx context.Context, key string) (ObjectContent, e
 		UserMetadata:    metadata,
 		Body:            body,
 		SHA256:          hex.EncodeToString(digest.Sum(nil)),
+	}, nil
+}
+
+// ObjectMeta is one observed object's exact metadata without its body.
+type ObjectMeta struct {
+	Key             string
+	Size            int64
+	ETag            string
+	LastModified    time.Time
+	ContentType     string
+	ContentEncoding string
+	CacheControl    string
+	UserMetadata    map[string]string
+}
+
+// StatObject requests one object's exact metadata with a HEAD request. It
+// never downloads the body, so ordinary unchanged observations do not pay for
+// object bytes.
+func (r *S3Reader) StatObject(ctx context.Context, key string) (ObjectMeta, error) {
+	base, err := bucketURL(r.config.Endpoint, r.config.Bucket)
+	if err != nil {
+		return ObjectMeta{}, fmt.Errorf("%w: invalid storage configuration", ErrStorageMisconfigured)
+	}
+	requestURL := *base
+	requestURL.Path += "/" + key
+	request, err := http.NewRequestWithContext(ctx, http.MethodHead, requestURL.String(), nil)
+	if err != nil {
+		return ObjectMeta{}, fmt.Errorf("prepare object metadata request: %w", err)
+	}
+	// Stored representations must be described exactly as stored.
+	request.Header.Set("Accept-Encoding", "identity")
+	if err := signRequest(request, r.config, r.now()); err != nil {
+		return ObjectMeta{}, fmt.Errorf("%w: %s", ErrStorageMisconfigured, err)
+	}
+	response, err := r.client.Do(request)
+	if err != nil {
+		return ObjectMeta{}, fmt.Errorf("%w: object metadata request failed", ErrStorageUnavailable)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return ObjectMeta{}, classifyStatus("read metadata "+key, response.StatusCode)
+	}
+
+	metadata := map[string]string{}
+	for name, values := range response.Header {
+		if len(values) == 0 {
+			continue
+		}
+		if strings.HasPrefix(strings.ToLower(name), "x-amz-meta-") {
+			metadata[strings.TrimPrefix(strings.ToLower(name), "x-amz-meta-")] = values[0]
+		}
+	}
+
+	lastModified := time.Time{}
+	if raw := response.Header.Get("Last-Modified"); raw != "" {
+		if parsed, err := http.ParseTime(raw); err == nil {
+			lastModified = parsed.UTC()
+		}
+	}
+	return ObjectMeta{
+		Key:             key,
+		Size:            response.ContentLength,
+		ETag:            response.Header.Get("ETag"),
+		LastModified:    lastModified,
+		ContentType:     response.Header.Get("Content-Type"),
+		ContentEncoding: response.Header.Get("Content-Encoding"),
+		CacheControl:    response.Header.Get("Cache-Control"),
+		UserMetadata:    metadata,
 	}, nil
 }
 

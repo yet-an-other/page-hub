@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/yet-an-other/page-hub/internal/catalog"
 )
@@ -44,7 +45,7 @@ func main() {
 	}
 	defer store.Close()
 
-	_, err = store.CommitAdoptionBatch(catalog.CommitAdoptionBatchInput{
+	result, err := store.CommitAdoptionBatch(catalog.CommitAdoptionBatchInput{
 		OperationID: "00000000-0000-4000-8000-000000000001",
 		RequestHash: "seed-fixture",
 		PlanDigest:  "sha256:seed-fixture",
@@ -78,5 +79,25 @@ func main() {
 		fmt.Fprintf(os.Stderr, "seedcatalog: %v\n", err)
 		os.Exit(1)
 	}
+
+	// Record a deterministic in-sync bucket observation so the manager shows
+	// observed state and usage without storage access.
+	publicationID := result.Projects[0].Publications[0].PublicationID
+	inSync := int64(150)
+	observedAt := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	if err := store.RecordObservation(catalog.ObservationRecord{
+		ObservedAt:     observedAt,
+		MutationLock:   catalog.LockNone,
+		TotalBytes:     150,
+		AcceptedBytes:  150,
+		UnclaimedBytes: 0,
+		Publications: []catalog.PublicationObservationRecord{
+			{PublicationID: publicationID, State: catalog.StateInSync, ObservedSize: &inSync},
+		},
+	}); err != nil {
+		fmt.Fprintf(os.Stderr, "seedcatalog: record observation: %v\n", err)
+		os.Exit(1)
+	}
+
 	fmt.Println("seeded", *catalogPath)
 }

@@ -1,13 +1,29 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { getInventory, getManagerStatus } from './api/client'
+import type { components } from './api/generated'
 import { Badge } from './components/ui/badge'
 import { Card, CardContent, CardHeader } from './components/ui/card'
+
+type BucketObservation = components['schemas']['BucketObservation']
+type PublicationObservation = components['schemas']['PublicationObservation']
 
 const statusStyles = {
   reachable: 'bg-emerald-100 text-emerald-800',
   unavailable: 'bg-amber-100 text-amber-800',
   misconfigured: 'bg-rose-100 text-rose-800',
+} as const
+
+const observedStyles = {
+  in_sync: 'bg-emerald-100 text-emerald-800',
+  drifted: 'bg-amber-100 text-amber-800',
+  missing: 'bg-rose-100 text-rose-800',
+} as const
+
+const observedLabels = {
+  in_sync: 'in sync',
+  drifted: 'drifted',
+  missing: 'missing',
 } as const
 
 function formatBytes(size: number): string {
@@ -20,6 +36,55 @@ function formatDate(value: string): string {
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return value
   return parsed.toISOString().slice(0, 16).replace('T', ' ') + ' UTC'
+}
+
+function ObservationBadge({ observation }: { observation: PublicationObservation }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <Badge className={`border border-transparent ${observedStyles[observation.state]}`}>
+        {observedLabels[observation.state]}
+      </Badge>
+      {observation.statusDetail && (
+        <span className="text-xs text-amber-700">{observation.statusDetail}</span>
+      )}
+    </span>
+  )
+}
+
+function UsageRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4">
+      <dt className="text-sm text-slate-500">{label}</dt>
+      <dd className="font-mono text-sm">{value}</dd>
+    </div>
+  )
+}
+
+function UsageCard({ observation }: { observation: BucketObservation }) {
+  const { usage } = observation
+  return (
+    <Card aria-label="Storage usage">
+      <CardHeader>
+        <h2 className="text-lg font-semibold">Storage usage</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          From the complete bucket observation {formatDate(observation.observedAt)}.
+        </p>
+      </CardHeader>
+      <CardContent>
+        <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <UsageRow label="Quota" value={formatBytes(usage.quotaBytes)} />
+          <UsageRow label="Bucket usage" value={formatBytes(usage.totalBytes)} />
+          <UsageRow label="Accepted Publications" value={formatBytes(usage.acceptedBytes)} />
+          <UsageRow label="Unclaimed storage" value={formatBytes(usage.unclaimedBytes)} />
+        </dl>
+        {observation.mutationLock !== 'none' && (
+          <p className="mt-3 text-xs text-amber-700">
+            Storage mutations would be locked ({observation.mutationLock.replace('_', ' ')}) until the findings above are classified.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  )
 }
 
 export function App() {
@@ -36,6 +101,7 @@ export function App() {
 
   const storageStatus = status.data?.storage.status
   const projects = inventory.data?.projects ?? []
+  const observation = inventory.data?.observation ?? undefined
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
@@ -82,6 +148,11 @@ export function App() {
                       <p className="truncate font-medium">{publication.displayName}</p>
                       <p className="truncate font-mono text-xs text-slate-500">{publication.path}</p>
                       {publication.description && <p className="mt-1 text-sm text-slate-600">{publication.description}</p>}
+                      {publication.observation && (
+                        <div className="mt-1">
+                          <ObservationBadge observation={publication.observation} />
+                        </div>
+                      )}
                     </div>
                     <div className="flex shrink-0 items-center gap-3 text-xs text-slate-500 sm:flex-col sm:items-end sm:gap-1">
                       <span>{formatBytes(publication.size)}</span>
@@ -94,6 +165,8 @@ export function App() {
             </Card>
           ))}
         </section>
+
+        {observation && <UsageCard observation={observation} />}
 
         <Card>
           <CardHeader>

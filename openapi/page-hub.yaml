@@ -20,7 +20,7 @@ paths:
       operationId: getInventory
       responses:
         '200':
-          description: Catalog-backed inventory of Projects and Publications.
+          description: Catalog-backed inventory of Projects and Publications with the latest bucket observation.
           content:
             application/json:
               schema:
@@ -63,12 +63,17 @@ components:
   schemas:
     Inventory:
       type: object
-      required: [projects]
+      required: [projects, observation]
       properties:
         projects:
           type: array
           items:
             $ref: '#/components/schemas/InventoryProject'
+        observation:
+          description: Latest complete bucket observation, or null before the first successful scan.
+          oneOf:
+            - $ref: '#/components/schemas/BucketObservation'
+            - type: "null"
     InventoryProject:
       type: object
       required: [id, prefix, displayName, description, publications]
@@ -87,7 +92,7 @@ components:
             $ref: '#/components/schemas/InventoryPublication'
     InventoryPublication:
       type: object
-      required: [id, path, displayName, description, entryPoint, routingMode, size, contentChangedAt]
+      required: [id, path, displayName, description, entryPoint, routingMode, size, contentChangedAt, observation]
       properties:
         id:
           type: string
@@ -108,6 +113,60 @@ components:
         contentChangedAt:
           type: string
           format: date-time
+        observation:
+          description: Observed storage state from the latest complete bucket observation.
+          oneOf:
+            - $ref: '#/components/schemas/PublicationObservation'
+            - type: "null"
+    PublicationObservation:
+      type: object
+      required: [state, observedSize, statusDetail]
+      properties:
+        state:
+          type: string
+          enum: [in_sync, drifted, missing]
+        observedSize:
+          description: Sum of observed sizes of the Publication's objects found in storage; null when none were found.
+          oneOf:
+            - type: integer
+              format: int64
+            - type: "null"
+        statusDetail:
+          type: string
+          description: Bounded, deterministic summary of the differences from the accepted manifest.
+    BucketObservation:
+      type: object
+      required: [observedAt, mutationLock, usage]
+      properties:
+        observedAt:
+          type: string
+          format: date-time
+        mutationLock:
+          type: string
+          enum: [none, global, publication]
+          description: Storage-mutation lock this observation implies for later storage mutations.
+        usage:
+          $ref: '#/components/schemas/BucketUsage'
+    BucketUsage:
+      type: object
+      required: [quotaBytes, totalBytes, acceptedBytes, unclaimedBytes]
+      properties:
+        quotaBytes:
+          type: integer
+          format: int64
+          description: Configured bucket quota in bytes.
+        totalBytes:
+          type: integer
+          format: int64
+          description: Exact usage of the complete bucket observation.
+        acceptedBytes:
+          type: integer
+          format: int64
+          description: Usage of the accepted Publication manifests.
+        unclaimedBytes:
+          type: integer
+          format: int64
+          description: Usage of unexpected objects outside every accepted manifest.
     StorageStatus:
       type: object
       required: [status]

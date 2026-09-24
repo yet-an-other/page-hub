@@ -136,6 +136,51 @@ func TestS3ReaderClassifiesMissingObject(t *testing.T) {
 	}
 }
 
+func TestS3ReaderStatsObjectMetadataWithoutBody(t *testing.T) {
+	content := []byte("<html>stat body</html>")
+	bucket := s3test.NewServer("page-hub", map[string]s3test.Object{
+		"notes/Index.html": {
+			Content:         content,
+			ContentType:     "text/html; charset=utf-8",
+			ContentEncoding: "gzip",
+			CacheControl:    "public, max-age=600",
+			UserMetadata:    map[string]string{"owner": "operator"},
+			LastModified:    time.Date(2025, 12, 31, 23, 59, 58, 0, time.UTC),
+			ETag:            `"etag-stat"`,
+		},
+	})
+	defer bucket.Close()
+
+	reader := storage.NewS3ReaderWithHTTPClient(testConfig(bucket.URL()), bucket.HTTPClient())
+	meta, err := reader.StatObject(context.Background(), "notes/Index.html")
+	if err != nil {
+		t.Fatalf("StatObject() error = %v", err)
+	}
+	if meta.Key != "notes/Index.html" || meta.Size != int64(len(content)) || meta.ETag != `"etag-stat"` {
+		t.Fatalf("meta = %+v", meta)
+	}
+	if meta.ContentType != "text/html; charset=utf-8" || meta.ContentEncoding != "gzip" || meta.CacheControl != "public, max-age=600" {
+		t.Fatalf("serving metadata = %+v", meta)
+	}
+	if meta.UserMetadata["owner"] != "operator" {
+		t.Fatalf("user metadata = %v", meta.UserMetadata)
+	}
+	if !meta.LastModified.Equal(time.Date(2025, 12, 31, 23, 59, 58, 0, time.UTC)) {
+		t.Fatalf("last modified = %v", meta.LastModified)
+	}
+
+	// HEAD must be enough: no object body was downloaded.
+	for _, request := range bucket.Requests() {
+		if request.Method != http.MethodHead {
+			t.Fatalf("issued %s request, want only HEAD", request.Method)
+		}
+	}
+
+	if _, err := reader.StatObject(context.Background(), "absent.html"); !errors.Is(err, storage.ErrObjectNotFound) {
+		t.Fatalf("missing object error = %v, want ErrObjectNotFound", err)
+	}
+}
+
 func TestS3ReaderClassifiesUnavailableStorage(t *testing.T) {
 	bucket := s3test.NewServer("page-hub", nil)
 	endpoint := bucket.URL()

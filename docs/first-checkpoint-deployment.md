@@ -22,12 +22,18 @@ logs. For example, a secret manager can render a root-owned file at
 ```dotenv
 PAGE_HUB_AUTH_ASSERTION_VALUE=<high-entropy-gateway-shared-value>
 PAGE_HUB_CATALOG_PATH=/var/lib/page-hub/catalog.db
+PAGE_HUB_STORAGE_QUOTA_BYTES=<exact-bucket-quota-in-bytes>
 PAGE_HUB_S3_ENDPOINT=https://<private-s3-endpoint>
 PAGE_HUB_S3_REGION=<s3-region>
 PAGE_HUB_S3_BUCKET=<publication-bucket>
 PAGE_HUB_S3_ACCESS_KEY_ID=<bucket-scoped-access-key>
 PAGE_HUB_S3_SECRET_ACCESS_KEY=<bucket-scoped-secret>
 ```
+
+`PAGE_HUB_STORAGE_QUOTA_BYTES` is required: the manager refuses to start
+without a positive integer quota in bytes. Usage is always calculated from
+complete bucket observations, never from a vendor-specific quota interface,
+so the value must match the quota configured on the storage service.
 
 The S3 identity must be limited to the configured bucket and only the read
 operations required by this checkpoint (`HeadBucket` and object reads for

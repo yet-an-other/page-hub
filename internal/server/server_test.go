@@ -31,6 +31,7 @@ func managerConfig() config.Config {
 		AuthAssertionValue:  "test-only-assertion",
 		Version:             "test-version",
 		CatalogPath:         "/tmp/test-catalog.db",
+		StorageQuotaBytes:   1 << 30,
 	}
 }
 

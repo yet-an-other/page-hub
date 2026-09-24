@@ -14,8 +14,10 @@ make verify
 make release VERSION=0.3.0
 ```
 
-The manager requires `PAGE_HUB_AUTH_ASSERTION_VALUE` and `PAGE_HUB_CATALOG_PATH`
-in production. For local loopback development only, set
+The manager requires `PAGE_HUB_AUTH_ASSERTION_VALUE`, `PAGE_HUB_CATALOG_PATH`,
+and `PAGE_HUB_STORAGE_QUOTA_BYTES` (the exact bucket quota in bytes; usage is
+calculated from bucket observations, never a vendor quota interface) in
+production. For local loopback development only, set
 `PAGE_HUB_DEV_AUTH_BYPASS=true`. See
 [`docs/first-checkpoint-deployment.md`](docs/first-checkpoint-deployment.md) for
 reverse-proxy and secret-injection guidance.
@@ -54,3 +56,17 @@ Commit refuses to run when `PAGE_HUB_PUBLIC_BASE_URL` differs from the origin
 recorded in the approved plan. Reusing an operation ID with the same plan
 returns its durable result; reuse with different content fails. The accepted
 batch appears in the manager inventory and survives restarts.
+
+## Observing storage
+
+After adoption the runtime requests a storage observation in the background at
+startup, and the manager reports how accepted Publications compare with
+storage: each Publication is `in sync`, `drifted`, or `missing`, and the
+manager separates accepted usage from unclaimed storage against the configured
+quota. An ordinary observation lists the bucket and compares exact keys,
+sizes, ETags, modification times, serving metadata, and user metadata; body
+SHA-256 verification happens only when something differs, or when a complete
+reconciliation requests it. Unexpected objects stay unclaimed — Page Hub
+never attaches them to a nearby Publication — and any unclassified finding
+records that later storage mutations would need a global lock. Observations
+never change accepted state and never write to storage.

@@ -16,6 +16,7 @@ import (
 	"github.com/yet-an-other/page-hub/internal/adoption"
 	"github.com/yet-an-other/page-hub/internal/catalog"
 	"github.com/yet-an-other/page-hub/internal/config"
+	"github.com/yet-an-other/page-hub/internal/observe"
 	"github.com/yet-an-other/page-hub/internal/server"
 	"github.com/yet-an-other/page-hub/internal/storage"
 )
@@ -73,8 +74,11 @@ Usage:
   page-hub version                              print version and compatible catalog schema
 
 plan and commit require PAGE_HUB_PUBLIC_BASE_URL and the PAGE_HUB_S3_*
-environment variables. Commit refuses to run when PAGE_HUB_PUBLIC_BASE_URL
-differs from the origin recorded in the approved plan.
+environment variables. The manager additionally requires
+PAGE_HUB_STORAGE_QUOTA_BYTES: the exact bucket quota in bytes, used to
+report usage alongside bucket observations. Commit refuses to run when
+PAGE_HUB_PUBLIC_BASE_URL differs from the origin recorded in the approved
+plan.
 `)
 	os.Exit(2)
 }
@@ -112,6 +116,23 @@ func runServe(args []string) {
 		fmt.Fprintf(os.Stderr, "page-hub startup error: %v\n", err)
 		os.Exit(2)
 	}
+
+	// Request one storage observation in the background so the manager serves
+	// its catalog immediately, even while storage is slow or unavailable. A
+	// failed scan leaves the previous observation in place; the formal refresh
+	// schedule and retries own degraded readiness.
+	go func() {
+		result, err := observe.Run(context.Background(), storage.NewS3Reader(cfg.Storage), store, observe.Options{})
+		if err != nil {
+			slog.Warn("startup storage observation failed", "status", resultStatus(err))
+			return
+		}
+		slog.Info("startup storage observation complete",
+			"publications", len(result.Publications),
+			"unclaimedObjects", len(result.UnclaimedKeys),
+			"mutationLock", result.MutationLock)
+	}()
+
 	listener, cleanup, err := server.Listen(cfg.ListenAddr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "page-hub listener error: %v\n", err)
@@ -285,4 +306,19 @@ func writePlan(encoded []byte, outputPath string) error {
 
 func storageConfigFromEnv() storage.Config {
 	return config.StorageFromEnv()
+}
+
+// resultStatus classifies a failed observation for the log without recording
+// provider details.
+func resultStatus(err error) string {
+	switch {
+	case err == nil:
+		return "ok"
+	case errors.Is(err, storage.ErrStorageUnavailable):
+		return "unavailable"
+	case errors.Is(err, storage.ErrStorageMisconfigured):
+		return "misconfigured"
+	default:
+		return "failed"
+	}
 }

@@ -554,22 +554,22 @@ func TestCommitAcceptsWholeBatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inventory() error = %v", err)
 	}
-	if len(inventory) != 3 {
-		t.Fatalf("inventory has %d projects, want 3", len(inventory))
+	if len(inventory.Projects) != 3 {
+		t.Fatalf("inventory has %d projects, want 3", len(inventory.Projects))
 	}
 	byPrefix := map[string]int{}
-	for index, project := range inventory {
+	for index, project := range inventory.Projects {
 		byPrefix[project.Prefix] = index
 	}
-	guides := inventory[byPrefix["guides"]]
+	guides := inventory.Projects[byPrefix["guides"]]
 	if len(guides.Publications) != 1 || guides.Publications[0].Path != "guides" || guides.Publications[0].RoutingMode != "fallback" {
 		t.Fatalf("guides project = %+v", guides)
 	}
-	reports := inventory[byPrefix["reports"]]
+	reports := inventory.Projects[byPrefix["reports"]]
 	if len(reports.Publications) != 1 || reports.Publications[0].EntryPoint != "reports/Index.html" {
 		t.Fatalf("reports project = %+v", reports)
 	}
-	docs := inventory[byPrefix["docs"]]
+	docs := inventory.Projects[byPrefix["docs"]]
 	if len(docs.Publications) != 1 || docs.Publications[0].Path != "docs" {
 		t.Fatalf("docs project = %+v", docs)
 	}
@@ -609,7 +609,7 @@ func TestAdoptionPreservesLegacyFacts(t *testing.T) {
 	}
 
 	var caseSensitive, exact, fallback bool
-	for _, project := range inventory {
+	for _, project := range inventory.Projects {
 		for _, publication := range project.Publications {
 			switch publication.Path {
 			case "reports":
@@ -735,8 +735,8 @@ func TestCommitRejectsDriftedStorage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inventory() error = %v", err)
 	}
-	if len(inventory) != 0 {
-		t.Fatalf("a rejected commit left %d projects behind", len(inventory))
+	if len(inventory.Projects) != 0 {
+		t.Fatalf("a rejected commit left %d projects behind", len(inventory.Projects))
 	}
 }
 
@@ -770,8 +770,8 @@ func TestCommitRejectsChangedProbeResults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inventory() error = %v", err)
 	}
-	if len(inventory) != 0 {
-		t.Fatalf("a rejected commit left %d projects behind", len(inventory))
+	if len(inventory.Projects) != 0 {
+		t.Fatalf("a rejected commit left %d projects behind", len(inventory.Projects))
 	}
 }
 
@@ -831,8 +831,8 @@ func TestCommitRejectsPublicBaseURLMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inventory() error = %v", err)
 	}
-	if len(inventory) != 0 {
-		t.Fatalf("a rejected commit left %d projects behind", len(inventory))
+	if len(inventory.Projects) != 0 {
+		t.Fatalf("a rejected commit left %d projects behind", len(inventory.Projects))
 	}
 }
 

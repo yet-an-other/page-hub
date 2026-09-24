@@ -74,6 +74,8 @@ export interface components {
     schemas: {
         Inventory: {
             projects: components["schemas"]["InventoryProject"][];
+            /** @description Latest complete bucket observation, or null before the first successful scan. */
+            observation: components["schemas"]["BucketObservation"] | null;
         };
         InventoryProject: {
             id: string;
@@ -94,6 +96,48 @@ export interface components {
             size: number;
             /** Format: date-time */
             contentChangedAt: string;
+            /** @description Observed storage state from the latest complete bucket observation. */
+            observation: components["schemas"]["PublicationObservation"] | null;
+        };
+        PublicationObservation: {
+            /** @enum {string} */
+            state: "in_sync" | "drifted" | "missing";
+            /** @description Sum of observed sizes of the Publication's objects found in storage; null when none were found. */
+            observedSize: number | null;
+            /** @description Bounded, deterministic summary of the differences from the accepted manifest. */
+            statusDetail: string;
+        };
+        BucketObservation: {
+            /** Format: date-time */
+            observedAt: string;
+            /**
+             * @description Storage-mutation lock this observation implies for later storage mutations.
+             * @enum {string}
+             */
+            mutationLock: "none" | "global" | "publication";
+            usage: components["schemas"]["BucketUsage"];
+        };
+        BucketUsage: {
+            /**
+             * Format: int64
+             * @description Configured bucket quota in bytes.
+             */
+            quotaBytes: number;
+            /**
+             * Format: int64
+             * @description Exact usage of the complete bucket observation.
+             */
+            totalBytes: number;
+            /**
+             * Format: int64
+             * @description Usage of the accepted Publication manifests.
+             */
+            acceptedBytes: number;
+            /**
+             * Format: int64
+             * @description Usage of unexpected objects outside every accepted manifest.
+             */
+            unclaimedBytes: number;
         };
         StorageStatus: {
             /** @enum {string} */
@@ -159,7 +203,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Catalog-backed inventory of Projects and Publications. */
+            /** @description Catalog-backed inventory of Projects and Publications with the latest bucket observation. */
             200: {
                 headers: {
                     [name: string]: unknown;
