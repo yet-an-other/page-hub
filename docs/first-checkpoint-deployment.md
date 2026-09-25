@@ -37,7 +37,9 @@ complete bucket observations, never from a vendor-specific quota interface,
 so the value must match the quota configured on the storage service.
 
 `PAGE_HUB_PUBLIC_BASE_URL` is required: the canonical public origin every
-Publication is served from. The manager joins it with Publication paths to
+Publication is served from. The manager joins it with each Publication's
+public route — the path for directory-index and fallback Publications, the
+exact entry point for exact-file Publications — to
 record canonical public URLs and to redirect authenticated previews. It must
 match the origin the adoption plan was committed with.
 

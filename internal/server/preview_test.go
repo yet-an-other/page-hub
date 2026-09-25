@@ -49,6 +49,27 @@ func authenticatedPreviewRequest(target string) *http.Request {
 	return request
 }
 
+// exactFileReport inventories an in-sync Publication published the way the
+// web-share skill publishes one file: the object keeps its filename under the
+// Project prefix, so the public URL includes the entry point, not just the
+// Publication path.
+func exactFileReport(t *testing.T) *fakeInventory {
+	t.Helper()
+	return previewInventory(t, &catalog.BucketObservation{
+		ObservedAt: time.Date(2026, 1, 3, 8, 0, 0, 0, time.UTC),
+		Usage:      catalog.BucketUsage{QuotaBytes: 1 << 30, TotalBytes: 50, AcceptedBytes: 50},
+	}, catalog.InventoryPublication{
+		ID:               "snapshot-id",
+		Path:             "archive/snapshot",
+		DisplayName:      "Snapshot",
+		EntryPoint:       "archive/snapshot/Report.HTML",
+		RoutingMode:      "exact_file",
+		Size:             50,
+		ContentChangedAt: "2025-11-20T08:00:00Z",
+		Observation:      &catalog.PublicationObservation{State: catalog.StateInSync},
+	})
+}
+
 func TestPreviewRedirectsInSyncPublicationToCanonicalURL(t *testing.T) {
 	app, err := server.New(managerConfig(), &fakeChecker{}, inSyncReport(t), &fakeRefresher{}, nil)
 	if err != nil {
@@ -65,6 +86,24 @@ func TestPreviewRedirectsInSyncPublicationToCanonicalURL(t *testing.T) {
 	}
 	if recorder.Header().Get("Cache-Control") != "no-store" {
 		t.Fatal("preview redirect must not be cached")
+	}
+}
+
+func TestPreviewRedirectsExactFilePublicationToItsEntryPointURL(t *testing.T) {
+	// An HTML page published as <project>/<filename> must redirect to the
+	// entry point's URL: the page readers actually request.
+	app, err := server.New(managerConfig(), &fakeChecker{}, exactFileReport(t), &fakeRefresher{}, nil)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	recorder := httptest.NewRecorder()
+	app.Handler().ServeHTTP(recorder, authenticatedPreviewRequest("/_page-hub/preview/archive/snapshot"))
+
+	if recorder.Code != http.StatusFound {
+		t.Fatalf("preview status = %d, want 302", recorder.Code)
+	}
+	if location := recorder.Header().Get("Location"); location != "https://share.bdgn.me/archive/snapshot/Report.HTML" {
+		t.Fatalf("Location = %q, want the entry point's public URL", location)
 	}
 }
 

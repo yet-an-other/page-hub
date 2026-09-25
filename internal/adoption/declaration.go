@@ -284,9 +284,16 @@ func validateKeyCharacters(what, value string) error {
 	return nil
 }
 
-// CanonicalURL joins the public base URL with a Publication path. The base
-// URL must already be normalized (no trailing slash).
-func CanonicalURL(baseURL, publicationPath string) string {
+// CanonicalURL joins the public base URL with a Publication's public URL.
+// The base URL must already be normalized (no trailing slash). An exact-file
+// Publication is its entry point's URL: web-share publishes one file as
+// <project>/<filename> and readers request the filename, which may differ
+// from the managed path and keeps its original casing. Directory-index and
+// fallback Publications are addressed by their path.
+func CanonicalURL(baseURL, publicationPath, entryPoint string, mode RoutingMode) string {
+	if mode == RoutingExactFile && entryPoint != "" {
+		return baseURL + "/" + entryPoint
+	}
 	return baseURL + "/" + publicationPath
 }
 

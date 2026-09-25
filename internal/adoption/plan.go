@@ -126,7 +126,7 @@ type planningContext struct {
 }
 
 func planPublication(ctx context.Context, planning planningContext, publication PublicationDeclaration) (PlannedPublication, error) {
-	canonical := CanonicalURL(planning.baseURL, publication.Path)
+	canonical := CanonicalURL(planning.baseURL, publication.Path, publication.EntryPoint, publication.RoutingMode)
 	planned := PlannedPublication{
 		Project:      publication.Project,
 		Path:         publication.Path,

@@ -260,14 +260,28 @@ test('the Publication path opens an authenticated preview that redirects in-sync
   expect(redirect.status()).toBe(302)
   expect(redirect.headers().location).toBe(`${publicBase}/notes/2026-report`)
 
+  // An exact-file page is addressed by its entry point: the URL readers
+  // actually request, with its original casing.
+  const exactFile = await request.get('/_page-hub/preview/archive/snapshot', { maxRedirects: 0 })
+  expect(exactFile.status()).toBe(302)
+  expect(exactFile.headers().location).toBe(`${publicBase}/archive/snapshot/Report.HTML`)
+
   const inventory = await openInventory(page)
   const context = page.context()
   const popupPromise = context.waitForEvent('page')
-  await inventory.getByRole('link', { name: '/notes/2026-report/' }).click()
+  await inventory.getByRole('link', { name: '/notes/2026-report', exact: true }).click()
   const popup = await popupPromise
   await popup.waitForLoadState()
   expect(new URL(popup.url()).pathname).toBe('/notes/2026-report')
   await popup.close()
+
+  // The public-page icon opens the entry point's URL for an exact-file page.
+  const snapshotPopup = context.waitForEvent('page')
+  await inventory.getByRole('link', { name: 'Open Snapshot public page' }).click()
+  const snapshotPage = await snapshotPopup
+  await snapshotPage.waitForLoadState()
+  expect(new URL(snapshotPage.url()).pathname).toBe('/archive/snapshot/Report.HTML')
+  await snapshotPage.close()
 })
 
 test('drifted and missing Publications receive a warning page instead of a redirect', async ({ page, request }) => {
@@ -284,7 +298,7 @@ test('drifted and missing Publications receive a warning page instead of a redir
   const inventory = await openInventory(page)
   const context = page.context()
   const popupPromise = context.waitForEvent('page')
-  await inventory.getByRole('link', { name: '/notes/quarter-recap/' }).click()
+  await inventory.getByRole('link', { name: '/notes/quarter-recap', exact: true }).click()
   const popup = await popupPromise
   await expect(popup.getByRole('heading', { name: 'Preview unavailable' })).toBeVisible()
   await expect(popup.getByText(/drifted from its accepted manifest/)).toBeVisible()
@@ -307,7 +321,8 @@ test('the public-page icon stays available in every state and opens the canonica
     ['2026 Report', '/notes/2026-report'],
     ['Quarter Recap', '/notes/quarter-recap'],
     ['Legacy Site', '/archive/legacy-site'],
-    ['Snapshot', '/archive/snapshot'],
+    // An exact-file page is addressed by its entry point, with its casing.
+    ['Snapshot', '/archive/snapshot/Report.HTML'],
   ] as const) {
     const icon = inventory.getByRole('link', { name: `Open ${name} public page` })
     await expect(icon).toHaveAttribute('target', '_blank')

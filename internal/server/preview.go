@@ -14,12 +14,14 @@ import (
 // route. One Publication path follows it, e.g. /_page-hub/preview/notes/report.
 const previewPrefix = managerPrefix + "preview/"
 
-// canonicalURL joins the configured public base URL with a Publication path.
-func (s *Server) canonicalURL(publicationPath string) string {
+// canonicalURL joins the configured public base URL with a Publication's
+// public URL. Exact-file Publications are addressed by their entry point so
+// the URL names the page readers actually request.
+func (s *Server) canonicalURL(publication catalog.InventoryPublication) string {
 	if s.config.PublicBaseURL == "" {
 		return ""
 	}
-	return adoption.CanonicalURL(s.config.PublicBaseURL, publicationPath)
+	return adoption.CanonicalURL(s.config.PublicBaseURL, publication.Path, publication.EntryPoint, adoption.RoutingMode(publication.RoutingMode))
 }
 
 // servePreview answers an authenticated Publication-path preview. An in-sync
@@ -60,7 +62,7 @@ func (s *Server) servePreview(response http.ResponseWriter, request *http.Reques
 		return
 	}
 
-	publicURL := s.canonicalURL(publication.Path)
+	publicURL := s.canonicalURL(publication)
 	if publication.Observation == nil || publication.Observation.State != catalog.StateInSync {
 		s.writePreviewWarning(response, request, s.previewWarningFor(publication, inventory, publicURL))
 		return

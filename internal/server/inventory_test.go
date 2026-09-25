@@ -120,6 +120,40 @@ func TestInventoryReturnsCatalogedProjectsWithObservation(t *testing.T) {
 	}
 }
 
+func TestInventoryCanonicalURLUsesTheEntryPointForExactFilePublications(t *testing.T) {
+	inventory := &fakeInventory{inventoryValue: catalog.Inventory{
+		Projects: []catalog.InventoryProject{{
+			ID:     "project-id",
+			Prefix: "archive",
+			Publications: []catalog.InventoryPublication{{
+				ID:          "publication-id",
+				Path:        "archive/snapshot",
+				DisplayName: "Snapshot",
+				EntryPoint:  "archive/snapshot/Report.HTML",
+				RoutingMode: "exact_file",
+			}},
+		}},
+	}}
+	app, err := server.New(managerConfig(), &fakeChecker{}, inventory, &fakeRefresher{}, nil)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/_page-hub/api/v1/inventory", nil)
+	request.Header.Set("X-Page-Hub-Assertion", "test-only-assertion")
+	app.Handler().ServeHTTP(recorder, request)
+
+	var payload struct {
+		Projects []catalog.InventoryProject `json:"projects"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode inventory response: %v", err)
+	}
+	if got := payload.Projects[0].Publications[0].CanonicalURL; got != "https://share.bdgn.me/archive/snapshot/Report.HTML" {
+		t.Fatalf("canonical URL = %q, want the entry point's public URL", got)
+	}
+}
+
 func TestInventoryWithoutObservationOmitsIt(t *testing.T) {
 	inventory := &fakeInventory{inventoryValue: catalog.Inventory{
 		Projects: []catalog.InventoryProject{{

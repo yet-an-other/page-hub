@@ -25,16 +25,18 @@ function previewHref(publicationPath: string): string {
   return `/_page-hub/preview/${publicationPath.split('/').map(encodeURIComponent).join('/')}`
 }
 
-// publicPathText renders the canonical public path of a Publication.
-// Cataloged paths already include the Project prefix. The entry point is
-// shown unless it is the directory index of the Publication's own path.
+// publicPathText renders the canonical public path of a Publication from
+// the API's canonical URL, so the text always names the destination the
+// public-page icon and an in-sync preview redirect open.
 function publicPathText(publication: InventoryPublication): string {
-  const root = `/${publication.path}`
-  if (publication.entryPoint === `${publication.path}/index.html`) return `${root}/`
-  const relativeEntry = publication.entryPoint.startsWith(`${publication.path}/`)
-    ? publication.entryPoint.slice(publication.path.length + 1)
-    : publication.entryPoint
-  return `${root}/${relativeEntry}`
+  if (publication.canonicalUrl) {
+    try {
+      return new URL(publication.canonicalUrl).pathname
+    } catch {
+      // fall through to the managed path
+    }
+  }
+  return `/${publication.path}`
 }
 
 function matchesQuery(query: string, values: Array<string | undefined>): boolean {

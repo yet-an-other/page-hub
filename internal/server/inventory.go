@@ -53,7 +53,7 @@ func (s *Server) serveInventory(response http.ResponseWriter, request *http.Requ
 	for projectIndex := range inventory.Projects {
 		publications := inventory.Projects[projectIndex].Publications
 		for publicationIndex := range publications {
-			publications[publicationIndex].CanonicalURL = s.canonicalURL(publications[publicationIndex].Path)
+			publications[publicationIndex].CanonicalURL = s.canonicalURL(publications[publicationIndex])
 		}
 	}
 	if inventory.Observation != nil {
