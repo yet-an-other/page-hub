@@ -38,6 +38,9 @@ func main() {
 		case "commit":
 			runCommit(os.Args[2:])
 			return
+		case "check":
+			runCheck(os.Args[2:])
+			return
 		case "version":
 			printVersion()
 			return
@@ -71,10 +74,13 @@ Usage:
                                                 plan an explicit adoption declaration against storage and the public routes
   page-hub commit -plan <file> -operation-id <uuid> [-catalog <path>]
                                                 commit an approved adoption batch into the catalog
+  page-hub check                                opt-in read-only storage compatibility check (no catalog, never changes storage)
   page-hub version                              print version and compatible catalog schema
 
 plan and commit require PAGE_HUB_PUBLIC_BASE_URL and the PAGE_HUB_S3_*
-environment variables. The manager additionally requires
+environment variables. check requires only the PAGE_HUB_S3_* variables and
+is opt-in: it is never part of ordinary CI or the manager runtime. The
+manager additionally requires
 PAGE_HUB_STORAGE_QUOTA_BYTES: the exact bucket quota in bytes, used to
 report usage alongside bucket observations. Commit refuses to run when
 PAGE_HUB_PUBLIC_BASE_URL differs from the origin recorded in the approved
@@ -268,10 +274,39 @@ func runCommit(args []string) {
 		os.Exit(1)
 	}
 	output := map[string]any{"result": result.Result, "replayed": result.Replayed}
+	writeIndentedJSON(output)
+}
+
+// runCheck performs the opt-in, read-only storage compatibility check: a
+// complete bucket listing plus complete body downloads with SHA-256 digest
+// computation over a bounded, deterministic sample. It needs no catalog,
+// writes nothing to storage, and records nothing, so it can run against a
+// production RadosGW endpoint without committing catalog state. Its failure
+// never blocks ordinary CI.
+func runCheck(args []string) {
+	flags := flag.NewFlagSet("check", flag.ExitOnError)
+	if err := flags.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	if flags.NArg() > 0 {
+		fmt.Fprintln(os.Stderr, "check: unexpected arguments")
+		os.Exit(2)
+	}
+	reader := storage.NewS3Reader(storageConfigFromEnv())
+	report, err := storage.CheckCompatibility(context.Background(), reader)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "page-hub check: %v\n", err)
+		os.Exit(1)
+	}
+	writeIndentedJSON(report)
+}
+
+// writeIndentedJSON writes one value as readable JSON on stdout.
+func writeIndentedJSON(value any) {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(output); err != nil {
-		fmt.Fprintf(os.Stderr, "page-hub commit: %v\n", err)
+	if err := encoder.Encode(value); err != nil {
+		fmt.Fprintf(os.Stderr, "page-hub: %v\n", err)
 		os.Exit(1)
 	}
 }

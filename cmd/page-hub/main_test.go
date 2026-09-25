@@ -41,6 +41,102 @@ func runCLI(t *testing.T, binary string, env []string, args ...string) (string, 
 	return stdout.String(), stderr.String(), err
 }
 
+func TestVersionCommandReportsVersionAndSchemaRange(t *testing.T) {
+	if testing.Short() {
+		t.Skip("building the CLI binary is too slow for -short runs")
+	}
+	binary := buildBinary(t)
+
+	for _, invocation := range [][]string{{"version"}, {"-version"}} {
+		stdout, stderr, err := runCLI(t, binary, nil, invocation...)
+		if err != nil {
+			t.Fatalf("%v: %v\n%s", invocation, err, stderr)
+		}
+		if !strings.Contains(stdout, "page-hub ") {
+			t.Fatalf("%s output = %q, want a version line", invocation, stdout)
+		}
+		if !strings.Contains(stdout, catalog.SupportedSchemaRange()) {
+			t.Fatalf("%s output = %q, want the compatible catalog schema range", invocation, stdout)
+		}
+		if strings.Contains(stderr, "secret") {
+			t.Fatalf("%s stderr = %q", invocation, stderr)
+		}
+	}
+}
+
+func TestCLICheckRunsReadOnlyCompatibilityChecks(t *testing.T) {
+	if testing.Short() {
+		t.Skip("building the CLI binary is too slow for -short runs")
+	}
+	binary := buildBinary(t)
+
+	objects := map[string]s3test.Object{
+		"guides/getting-started/index.html": {Content: []byte("<html>getting started</html>"), ETag: `"check-html"`},
+		"guides/getting-started/app.js":     {Content: []byte("console.log('ready')"), ETag: `"check-js"`},
+		"docs":                              {Content: []byte("Annual report body"), ETag: `"check-docs"`},
+	}
+	bucket := s3test.NewServer("page-hub", objects)
+	defer bucket.Close()
+
+	// The compatibility check needs only storage settings: no catalog path,
+	// no assertion, no quota, and no public base URL.
+	env := []string{
+		fmt.Sprintf("PAGE_HUB_S3_ENDPOINT=%s", bucket.URL()),
+		"PAGE_HUB_S3_BUCKET=page-hub",
+		"PAGE_HUB_S3_ACCESS_KEY_ID=test-access-key",
+		"PAGE_HUB_S3_SECRET_ACCESS_KEY=test-secret-key",
+	}
+	stdout, stderr, err := runCLI(t, binary, env, "check")
+	if err != nil {
+		t.Fatalf("check: %v\n%s", err, stderr)
+	}
+
+	var report struct {
+		Objects        int      `json:"objects"`
+		TotalBytes     int64    `json:"totalBytes"`
+		DownloadedKeys []string `json:"downloadedKeys"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &report); err != nil {
+		t.Fatalf("parse check output %q: %v", stdout, err)
+	}
+	if report.Objects != 3 || report.TotalBytes != int64(len("<html>getting started</html>")+len("console.log('ready')")+len("Annual report body")) {
+		t.Fatalf("check report = %+v", report)
+	}
+	if len(report.DownloadedKeys) != 3 {
+		t.Fatalf("downloadedKeys = %v, want every object downloaded", report.DownloadedKeys)
+	}
+
+	// The check never writes, copies, or deletes.
+	bucket.AssertOnlyReads(t)
+}
+
+func TestCLICheckFailsClosedWithoutTouchingTheCatalogOrLeakingSecrets(t *testing.T) {
+	if testing.Short() {
+		t.Skip("building the CLI binary is too slow for -short runs")
+	}
+	binary := buildBinary(t)
+
+	env := []string{
+		"PAGE_HUB_S3_ENDPOINT=http://127.0.0.1:1",
+		"PAGE_HUB_S3_BUCKET=page-hub",
+		"PAGE_HUB_S3_ACCESS_KEY_ID=secret-access-key-id",
+		"PAGE_HUB_S3_SECRET_ACCESS_KEY=secret-access-key-value",
+		"PAGE_HUB_CATALOG_PATH=" + filepath.Join(t.TempDir(), "catalog.db"),
+	}
+	stdout, stderr, err := runCLI(t, binary, env, "check")
+	if err == nil {
+		t.Fatalf("check against unavailable storage succeeded: %s", stdout)
+	}
+	for _, output := range []string{stdout, stderr} {
+		if strings.Contains(output, "secret-access-key") {
+			t.Fatalf("check output leaked credentials: %q", output)
+		}
+	}
+	if _, err := os.Stat(env[4][len("PAGE_HUB_CATALOG_PATH="):]); !os.IsNotExist(err) {
+		t.Fatal("the compatibility check must not create or touch catalog state")
+	}
+}
+
 // fakeSite stands in for the public routing layer during CLI tests.
 type fakeSite struct {
 	server *httptest.Server
@@ -252,13 +348,7 @@ func TestCLIAdoptionEndToEnd(t *testing.T) {
 	}
 
 	// The whole workflow only ever read from storage.
-	for _, request := range bucket.Requests() {
-		switch request.Method {
-		case http.MethodGet, http.MethodHead:
-		default:
-			t.Fatalf("storage request %s %s mutates storage", request.Method, request.Path)
-		}
-	}
+	bucket.AssertOnlyReads(t)
 
 	// A restarted manager sees the accepted state.
 	store, err := catalog.OpenRuntime(catalogPath)
@@ -297,5 +387,15 @@ func TestCLIAdoptionEndToEnd(t *testing.T) {
 	}
 	if !replay.Replayed {
 		t.Fatal("expected the replayed durable result")
+	}
+}
+
+func TestCLICheckRejectsUnexpectedArguments(t *testing.T) {
+	if testing.Short() {
+		t.Skip("building the CLI binary is too slow for -short runs")
+	}
+	binary := buildBinary(t)
+	if _, _, err := runCLI(t, binary, nil, "check", "extra"); err == nil {
+		t.Fatal("check with unexpected arguments should fail")
 	}
 }

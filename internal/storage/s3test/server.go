@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 )
 
@@ -66,6 +67,23 @@ func (s *Server) Requests() []Request {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]Request(nil), s.requests...)
+}
+
+// AssertOnlyReads fails the test if any request other than a GET or HEAD
+// reached the bucket: the proof that a Page Hub workflow never mutates
+// storage.
+func (s *Server) AssertOnlyReads(t testing.TB) {
+	t.Helper()
+	s.mu.Lock()
+	requests := append([]Request(nil), s.requests...)
+	s.mu.Unlock()
+	for _, request := range requests {
+		switch request.Method {
+		case http.MethodGet, http.MethodHead:
+		default:
+			t.Fatalf("workflow issued %s %s against storage; only reads are allowed", request.Method, request.Path)
+		}
+	}
 }
 
 // SetObject stores or replaces one object (test drift later).
