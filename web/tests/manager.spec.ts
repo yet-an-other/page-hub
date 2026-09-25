@@ -232,11 +232,14 @@ test('stale inventory stays readable through a failed refresh', async ({ page })
   await page.goto('/')
   const inventory = page.getByRole('region', { name: 'Publication inventory' })
   const usage = page.getByRole('region', { name: 'Storage usage' })
-  await expect(inventory.getByText('2026 Report')).toBeVisible()
+  await expect(inventory.getByText('2026 Report', { exact: true })).toBeVisible()
 
   // Storage is unconfigured here, so the refresh fails while every cataloged
-  // value stays on screen.
-  await page.getByRole('button', { name: 'Refresh' }).click()
+  // value stays on screen. The mount-time refresh may still be settling, so
+  // wait for the control to be enabled before clicking.
+  const refreshButton = page.getByRole('button', { name: 'Refresh' })
+  await expect(refreshButton).toBeEnabled({ timeout: 20_000 })
+  await refreshButton.click()
   await expect(page.getByRole('alert')).toContainText('The last refresh failed')
   await expect(page.getByRole('alert')).toContainText('storage misconfigured')
 
@@ -244,6 +247,7 @@ test('stale inventory stays readable through a failed refresh', async ({ page })
   await expect(inventory.getByText('2026 Report', { exact: true })).toBeVisible()
   await expect(inventory.getByRole('cell', { name: '150 B', exact: true })).toHaveCount(2)
   await expect(usage.getByText('1.0 MiB')).toBeVisible()
+  await expect(usage.getByText(/This observation is stale/)).toBeVisible()
 
   const api = await page.request.post('/_page-hub/api/v1/refresh')
   expect(api.ok()).toBeTruthy()

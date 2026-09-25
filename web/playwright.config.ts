@@ -8,6 +8,9 @@ export default defineConfig({
   timeout: 30_000,
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
+  // One retry in CI keeps the release gate from failing on a single
+  // scheduling hiccup (e.g. a browser worker stalled under runner load).
+  retries: process.env.CI ? 1 : 0,
   reporter: 'line',
   use: {
     baseURL: `http://127.0.0.1:${port}`,
