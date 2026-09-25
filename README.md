@@ -11,7 +11,7 @@ bucket.
 
 ```sh
 make verify
-make release VERSION=0.6.0
+make release VERSION=0.6.1
 ```
 
 The manager requires `PAGE_HUB_AUTH_ASSERTION_VALUE`, `PAGE_HUB_CATALOG_PATH`,
