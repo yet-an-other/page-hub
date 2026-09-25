@@ -248,6 +248,24 @@ inventory API returns the cataloged Projects and Publications; an empty catalog
 returns an empty list, not an error. A storage outage should report `unavailable`
 or `misconfigured`, never bucket contents.
 
+Before adopting, an opt-in read-only compatibility check can prove the
+configured endpoint behaves for the complete read path — full listing and
+complete body downloads with SHA-256 digest computation — without a catalog
+and without changing storage.
+It needs only the storage settings and is never part of ordinary CI:
+
+```sh
+sudo -u <page-hub-user> env PAGE_HUB_S3_ENDPOINT=https://<private-s3-endpoint> \
+  PAGE_HUB_S3_REGION=<s3-region> PAGE_HUB_S3_BUCKET=<publication-bucket> \
+  PAGE_HUB_S3_ACCESS_KEY_ID=<bucket-scoped-access-key> \
+  PAGE_HUB_S3_SECRET_ACCESS_KEY=<bucket-scoped-secret> \
+  /usr/local/libexec/page-hub check
+```
+
+It prints a JSON report of observed object count, exact bucket bytes, and the
+downloaded keys. A non-zero exit means the endpoint is not compatible with the
+manager's read path; nothing is written or recorded either way.
+
 ## Adopting the first declared Publication
 
 Adoption is a two-command, storage-read-only workflow. Declare the candidate in

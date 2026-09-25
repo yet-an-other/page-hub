@@ -58,6 +58,29 @@ recorded in the approved plan. Reusing an operation ID with the same plan
 returns its durable result; reuse with different content fails. The accepted
 batch appears in the manager inventory and survives restarts.
 
+## Verifying a release
+
+One repository command qualifies a checkout hermetically — no production
+credentials, private configuration, or network access:
+
+```sh
+make verify
+```
+
+`make verify` formats and lints Go and TypeScript, runs the Go unit and
+integration tests, verifies the generated OpenAPI TypeScript types are
+current, builds the React manager, embeds it into the Go binary, and runs
+the Playwright acceptance suite (desktop and narrow viewports, keyboard and
+automated accessibility checks) against that compiled binary.
+
+`make release VERSION=<version>` builds the versioned Linux amd64 binary and
+its SHA-256 checksum. The binary reports its version and compatible catalog
+schema range:
+
+```sh
+page-hub version
+```
+
 ## Observing storage
 
 After adoption the observation service requests a storage scan at startup,
@@ -76,3 +99,27 @@ reconciliation requests it. Unexpected objects stay unclaimed — Page Hub
 never attaches them to a nearby Publication — and any unclassified finding
 records that later storage mutations would need a global lock. Observations
 never change accepted state and never write to storage.
+
+## Checking storage compatibility
+
+`page-hub check` is an opt-in, read-only compatibility check for a configured
+S3-compatible endpoint such as RadosGW. It lists the complete bucket and
+downloads a bounded sample of object bodies completely, computing their
+SHA-256 digests. It requires only the `PAGE_HUB_S3_*` variables — no catalog,
+no assertion, no quota — writes nothing to storage, and records nothing, so it
+is safe to run against production before adoption. Its failure never alters
+storage and is never a requirement for ordinary CI:
+
+```sh
+page-hub check
+```
+
+It prints a JSON report:
+
+```json
+{
+  "objects": 3,
+  "totalBytes": 74,
+  "downloadedKeys": ["docs", "guides/getting-started/app.js", "guides/getting-started/index.html"]
+}
+```
