@@ -68,9 +68,11 @@
 .ip-filters button span { font-size: 10px; }
 .ip-results { margin-left: auto; color: var(--muted); font-size: 11px; white-space: nowrap; }
 .ip-table-layout { border: 1px solid var(--line); border-radius: 10px; background: #fff; box-shadow: 0 4px 16px #24342604; }
-.ip-table-head, .ip-table-row { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.65fr) 98px 108px 73px 30px; gap: 20px; padding: 0 20px; }
+.ip-table-head, .ip-table-row { display: grid; grid-template-columns: minmax(0, 1fr) 98px 108px 73px 30px; gap: 20px; padding: 0 20px; }
 .ip-table-head { align-items: center; min-height: 39px; color: var(--muted); font-size: 10px; }
-.ip-table-head > :nth-child(5) { text-align: right; }
+.ip-table-head > :nth-child(4) { text-align: right; }
+.ip-table-copy { min-width: 0; }
+.ip-table-copy .ip-description { margin-top: 7px; }
 .ip-project { min-width: 0; }
 .ip-project-header { display: flex; align-items: center; gap: 16px; padding: 11px 20px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #f1f4ef; }
 .ip-project-heading { display: flex; flex: 1; min-width: 0; }
@@ -84,7 +86,7 @@
 .ip-project-title code { color: #647365; font-size: 10px; font-weight: 400; overflow-wrap: anywhere; }
 .ip-project-description { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
 .ip-project-count { color: var(--muted); font-size: 10px; white-space: nowrap; }
-.ip-table-row { align-items: center; padding-top: 17px; padding-bottom: 17px; border-bottom: 1px solid #edf0eb; }
+.ip-table-row { align-items: start; padding-top: 17px; padding-bottom: 17px; border-bottom: 1px solid #edf0eb; }
 .ip-table-row:last-child { border-bottom: 0; }
 .ip-table-row:hover { background: #fcfdfb; }
 .ip-publication-name { min-width: 0; }
@@ -181,7 +183,7 @@
 @media (min-width: 1500px) { .ip-main { padding-top: 44px; } }
 @media (max-width: 1120px) {
   .ip-main { padding: 30px 25px 105px; }
-  .ip-table-head, .ip-table-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) 91px 79px 65px 28px; gap: 13px; padding-left: 16px; padding-right: 16px; }
+  .ip-table-head, .ip-table-row { grid-template-columns: minmax(0, 1fr) 91px 79px 65px 28px; gap: 13px; padding-left: 16px; padding-right: 16px; }
   .ip-table-head { font-size: 9px; }
   .ip-private { display: none; }
   .ip-table-row { padding-top: 16px; padding-bottom: 16px; }
@@ -195,9 +197,10 @@
   .ip-table-layout { border-top: 0; }
   .ip-table-layout > .ip-project:first-child > .ip-project-header { border-radius: 10px 10px 0 0; }
   .ip-table-row { grid-template-columns: minmax(0, 1fr) auto auto 30px; gap: 9px 18px; padding: 18px 20px; }
+  .ip-table-copy { display: contents; }
   .ip-table-row .ip-publication-name { grid-column: 1 / 4; grid-row: 1; }
   .ip-table-row > .ip-icon-button { grid-column: 4; grid-row: 1; }
-  .ip-table-row .ip-description { grid-column: 1 / -1; grid-row: 2; font-size: 12px; }
+  .ip-table-row .ip-description { grid-column: 1 / -1; grid-row: 2; margin-top: 0; font-size: 12px; }
   .ip-row-state { grid-column: 1; grid-row: 3; }
   .ip-row-date { grid-column: 2; grid-row: 3; font-size: 10px; }
   .ip-row-size { grid-column: 3 / 5; grid-row: 3; }

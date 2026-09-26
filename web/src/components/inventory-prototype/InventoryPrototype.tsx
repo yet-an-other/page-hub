@@ -9,7 +9,7 @@ import { PrototypeSwitcher } from '../PrototypeSwitcher'
 import './prototype.css'
 
 export const variants = [
-  { key: 'A', name: 'Inventory', note: 'The original structure. Wide descriptions, compact metadata.' },
+  { key: 'A', name: 'Inventory', note: 'Grouped inventory. One-line links, descriptions underneath, compact metadata.' },
   { key: 'B', name: 'Reading list', note: 'Descriptions below titles. No table columns to compete with.' },
   { key: 'C', name: 'Project index', note: 'Choose a Project, then read its Publications at full width.' },
 ] as const
@@ -88,7 +88,7 @@ function ProjectHeading({ project, collapsed, toggle, count }: { project: Projec
 
 export function VariantA({ groups, collapsed, toggle, searching, inspect }: LayoutProps) {
   return <div className="ip-table-layout">
-    <div className="ip-table-head" aria-hidden="true"><span>Publication</span><span>Private description</span><span>State</span><span>Content changed</span><span>Size</span><span /></div>
+    <div className="ip-table-head" aria-hidden="true"><span>Publication</span><span>State</span><span>Content changed</span><span>Size</span><span /></div>
     {groups.map(({ project, publications }) => {
       const closed = !searching && collapsed.has(project.id)
       return <section className="ip-project" key={project.id} aria-label={project.displayName}>
@@ -96,8 +96,10 @@ export function VariantA({ groups, collapsed, toggle, searching, inspect }: Layo
         <div id={`publications-${project.id}`} hidden={closed}>
           {!publications.length && <p className="ip-empty">No Publications in this Project yet.</p>}
           {publications.map(publication => <article className="ip-table-row" key={publication.id}>
-            <PublicationName publication={publication} />
-            <Description publication={publication} />
+            <div className="ip-table-copy">
+              <PublicationName publication={publication} />
+              <Description publication={publication} />
+            </div>
             <div className="ip-row-state"><Status publication={publication} onInspect={inspect} /></div>
             <time className="ip-row-date" dateTime={publication.contentChangedAt} title={`Content changed ${stamp(publication.contentChangedAt)}`}><span className="ip-mobile-label">Content changed </span>{date(publication.contentChangedAt)}</time>
             <span className="ip-row-size" title={`Accepted size: ${exact(publication.size)}`}>{bytes(publication.size)}</span>

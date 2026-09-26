@@ -8,7 +8,7 @@ Question: how can the grouped inventory show storage observations without crowdi
 
 From `web/`, run `pnpm prototype`. Open http://127.0.0.1:5174/?variant=A.
 
-- `A`: the original grouped inventory, with a wide description column and compact metadata.
+- `A`: the grouped inventory, with descriptions beneath one-line preview links and compact metadata columns. Long links end in an ellipsis; descriptions wrap without truncation.
 - `B`: a reading list, with descriptions beneath titles and no table columns.
 - `C`: a Project index beside the selected Project's Publications.
 
@@ -26,4 +26,6 @@ Source branch: `prototype/inventory-layout`. This branch is the primary source, 
 
 Checked in Chromium at 320, 390, 620, 768, 860, 1024, and 1440 pixels. No horizontal overflow in any variant. Search, collapse restoration, attention filtering, keyboard switching, exact storage values, observation dialogs, Project selection, and simulated link destinations were exercised. Axe reported no violations for the three default variants at desktop and mobile widths. Typecheck and lint pass.
 
-No catalog or storage writes. No private catalog data. No persistence. No chosen winner yet; implementation should wait for operator feedback.
+No catalog or storage writes. No private catalog data. No persistence.
+
+The operator preferred A and requested removing its description column. A now puts each multiline description directly beneath its single-line preview link. The revised prototype remains separate from production for review.
