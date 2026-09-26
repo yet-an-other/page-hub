@@ -28,4 +28,6 @@ Checked in Chromium at 320, 390, 620, 768, 860, 1024, and 1440 pixels. No horizo
 
 No catalog or storage writes. No private catalog data. No persistence.
 
-The operator preferred A and requested removing its description column. A now puts each multiline description directly beneath its single-line preview link. The revised prototype remains separate from production for review.
+## Verdict
+
+The operator accepted variant A. Follow-up pass moved each description directly beneath its single-line preview link, removing the description column; links ellipsize when too long and descriptions wrap without truncation. Implemented on `main` in 7c5e3a3 (`feat(manager): rework inventory around a compact header and readable rows`). Variants B and C remain here as design history only.
