@@ -6,6 +6,8 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
+    "prototype": "vite --mode prototype --base / --host 127.0.0.1 --port 5174",
+    "prototype:build": "vite build --mode prototype --base ./ --outDir dist-prototype",
     "generate:openapi": "openapi-typescript ../openapi/page-hub.yaml -o src/api/generated.ts",
     "verify:openapi": "pnpm generate:openapi && git diff --exit-code -- src/api/generated.ts",
     "typecheck": "tsc --noEmit",

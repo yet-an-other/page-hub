@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getInventory, getManagerStatus, requestRefresh } from './api/client'
 import type { components } from './api/generated'
 import { Inventory } from './components/Inventory'
+import { InventoryPrototype } from './components/inventory-prototype/InventoryPrototype'
+import { sampleInventory, sampleStatus } from './components/inventory-prototype/fixtures'
 import { Badge } from './components/ui/badge'
 import { Card, CardContent, CardHeader } from './components/ui/card'
 import { formatBytes, formatDate } from './lib/format'
@@ -157,6 +159,12 @@ export function App() {
   const projects = inventory.data?.projects ?? []
   const observation = inventory.data?.observation ?? undefined
   const refreshState: RefreshState = inventory.data?.refresh ?? { running: false, lastOutcome: 'never' }
+
+  // The existing route and query lifecycle stay in place. Only this explicit mode
+  // swaps the rendering and uses synthetic, in-memory API responses.
+  if (import.meta.env.MODE === 'prototype') {
+    return <InventoryPrototype inventory={inventory.data ?? sampleInventory()} status={status.data ?? sampleStatus} onRefresh={() => refresh.mutate()} pending={refresh.isPending} />
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">

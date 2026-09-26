@@ -1,0 +1,3 @@
+# Throwaway prototype output and optional local dependency symlink.
+/dist-prototype/
+/node_modules
