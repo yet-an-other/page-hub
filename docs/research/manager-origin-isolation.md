@@ -1,6 +1,6 @@
 # Manager origin isolation
 
-Research for yet-another/page-hub#23. Public report: no private deployment values appear here. Deployment facts come from the public repository (CONTEXT.md, ADR-0002, docs/deployment.md, docs/routing-deployment.md, internal/server/server.go); the deployment is otherwise described generically (the share origin, the SSO origin, the object-storage reader).
+Research for yet-an-other/page-hub#23. Public report: no private deployment values appear here. Deployment facts come from the public repository (CONTEXT.md, ADR-0002, docs/deployment.md, docs/routing-deployment.md, internal/server/server.go); the deployment is otherwise described generically (the share origin, the SSO origin, the object-storage reader).
 
 ## Question
 
