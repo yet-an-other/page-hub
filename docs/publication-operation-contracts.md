@@ -154,6 +154,17 @@ For a missing Publication, repeat the storage check and then create the tombston
 
 If deletion stops after removing some objects, the operation fails. Page Hub observes storage and reports the Publication as drifted or missing according to the ordinary reconciliation model. It never reports successful deletion while the Publication remains in the active catalog.
 
+## Restart and recovery
+
+A manager stop or crash never cancels an accepted storage operation. At startup, Page Hub resumes every interrupted move, deletion, or Project move forward until it reaches its durable success or failure result.
+
+- Recovery resumes from the operation record and the accepted manifests. Each remaining step revalidates the exact keys, digests, routes, and quota before acting, exactly as the ordinary storage sequences require.
+- Objects attributable to a running operation are not unclassified findings. A scan attributes their keys to the operation record, so they never place a global storage-mutation lock, in strict mode or in coexistence mode. The affected Publication keeps its ordinary observed state.
+- Recovery does not wait for the startup observation, because every step revalidates storage itself. Page Hub accepts no new storage mutation until recovery has finished; serialized management writes already provide this.
+- On shutdown, Page Hub stops accepting new mutations and exits. Whether the current step reaches a clean boundary within the deployment's stop window is an implementation detail, not a contract.
+- The browser keeps following the operation ID across a restart. The affected row keeps showing the running operation until the durable result lands.
+- A catalog-only operation, such as a description edit or a rename, is one catalog transaction. An interruption rolls it back with nothing to resume, and the client retries under the ordinary operation-ID rule.
+
 ## Errors and feedback
 
 - Invalid fields show field-level messages and preserve every submitted value.
@@ -179,3 +190,4 @@ An implementation of this contract must demonstrate at least these cases:
 9. A partial deletion failure appears through the ordinary drift or missing state and does not create a tombstone.
 10. Deleting a missing Publication performs a fresh check, creates a tombstone, and issues no storage delete.
 11. A completed move or deletion releases its old route so a later Publication can use it.
+12. A manager restart during the copy or deletion phase resumes the operation forward to its durable result, and the objects it wrote never trigger the global lock.
