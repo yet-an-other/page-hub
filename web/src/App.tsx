@@ -1,134 +1,72 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { getInventory, getManagerStatus, requestRefresh } from './api/client'
 import type { components } from './api/generated'
 import { Inventory } from './components/Inventory'
-import { Badge } from './components/ui/badge'
-import { Card, CardContent, CardHeader } from './components/ui/card'
-import { formatBytes, formatDate } from './lib/format'
+import { InfoIcon, LockIcon, RefreshIcon } from './components/icons'
+import { Dialog } from './components/ui/dialog'
+import { formatBytes, formatDate, formatExactBytes, formatShortDateTime } from './lib/format'
 
 type BucketObservation = components['schemas']['BucketObservation']
-type RefreshState = components['schemas']['RefreshState']
 
-const statusStyles = {
-  reachable: 'bg-emerald-100 text-emerald-800',
-  unavailable: 'bg-amber-100 text-amber-800',
-  misconfigured: 'bg-rose-100 text-rose-800',
-} as const
-
-const outcomeLabels: Record<string, string> = {
-  unavailable: 'storage unavailable',
-  misconfigured: 'storage misconfigured',
-  failed: 'the scan failed',
-}
-
-function UsageRow({ label, value }: { label: string; value: string }) {
+function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex items-baseline justify-between gap-4">
-      <dt className="text-sm text-slate-500">{label}</dt>
-      <dd className="font-mono text-sm">{value}</dd>
+    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-line py-2.5 text-[12px]">
+      <dt className="text-muted">{label}</dt>
+      <dd className="m-0 break-all text-right">{children}</dd>
     </div>
   )
 }
 
-function UsageCard({ observation }: { observation: BucketObservation }) {
-  const { usage } = observation
-  return (
-    <Card aria-label="Storage usage">
-      <CardHeader>
-        <h2 className="text-lg font-semibold">Storage usage</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          From the complete bucket observation {formatDate(observation.observedAt)}.
-        </p>
-      </CardHeader>
-      <CardContent>
-        <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <UsageRow label="Quota" value={formatBytes(usage.quotaBytes)} />
-          <UsageRow label="Bucket usage" value={formatBytes(usage.totalBytes)} />
-          <UsageRow label="Accepted Publications" value={formatBytes(usage.acceptedBytes)} />
-          <UsageRow label="Unclaimed storage" value={formatBytes(usage.unclaimedBytes)} />
-        </dl>
-        {observation.stale && (
-          <p className="mt-3 text-xs text-amber-700" role="status">
-            This observation is stale. Page Hub keeps the last checked values until a new scan completes.
-          </p>
-        )}
-        {observation.mutationLock !== 'none' && (
-          <p className="mt-3 text-xs text-amber-700">
-            Storage mutations would be locked ({observation.mutationLock.replace('_', ' ')}) until the findings above are classified.
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function UnavailableUsageCard() {
-  return (
-    <Card aria-label="Storage usage">
-      <CardHeader>
-        <h2 className="text-lg font-semibold">Storage usage</h2>
-        <p className="mt-1 text-sm text-slate-500">From the complete bucket observation.</p>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-amber-700">
-          Usage is unavailable until the first storage scan completes. Published sizes above still come from their accepted manifests.
-        </p>
-      </CardContent>
-    </Card>
-  )
-}
-
-function refreshWarning(refresh: RefreshState): string | null {
-  if (refresh.running) return null
-  const reason = outcomeLabels[refresh.lastOutcome]
-  if (reason) {
-    return `The last refresh failed (${reason}). The values below come from the last successful scan.`
-  }
-  return null
-}
-
-function RefreshControls({
-  refresh,
-  onRefresh,
-  pending,
+// One compact header control replaces the standalone usage cards: the
+// summary stays visible, exact values and lock state open on demand.
+function StorageDetails({
+  observation,
+  storageStatus,
+  version,
+  onClose,
 }: {
-  refresh: RefreshState
-  onRefresh: () => void
-  pending: boolean
+  observation?: BucketObservation
+  storageStatus?: components['schemas']['StorageStatus']['status']
+  version: string
+  onClose: () => void
 }) {
-  const warning = refreshWarning(refresh)
-  const refreshing = pending || refresh.running
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0 text-sm">
-        {refreshing ? (
-          <p className="text-slate-500" role="status">
-            Refreshing storage…
-          </p>
-        ) : warning ? (
-          <p className="text-amber-700" role="alert">
-            {warning}
-          </p>
-        ) : (
-          <p className="text-slate-500">Storage observations run at startup, daily, and when the inventory opens.</p>
-        )}
-      </div>
-      <button
-        type="button"
-        onClick={onRefresh}
-        disabled={refreshing}
-        className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-600 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {refreshing ? 'Refreshing…' : 'Refresh'}
-      </button>
-    </div>
+    <Dialog title="Storage observation" onClose={onClose}>
+      <p className="mb-4 mt-1 text-[12px] leading-relaxed text-muted">
+        Exact values from the latest complete bucket listing. Publication sizes remain accepted manifest values.
+      </p>
+      {observation ? (
+        <dl className="my-4">
+          <Fact label="Bucket usage">{formatExactBytes(observation.usage.totalBytes)}</Fact>
+          <Fact label="Quota">{formatExactBytes(observation.usage.quotaBytes)}</Fact>
+          <Fact label="Accepted Publications">{formatExactBytes(observation.usage.acceptedBytes)}</Fact>
+          <Fact label="Unclaimed storage">{formatExactBytes(observation.usage.unclaimedBytes)}</Fact>
+          <Fact label="Observed">{formatDate(observation.observedAt)}</Fact>
+          <Fact label="Freshness">{observation.stale ? 'Stale, from the last successful scan' : 'Current'}</Fact>
+          <Fact label="Storage mutation lock">{observation.mutationLock}</Fact>
+          <Fact label="Storage connectivity">{storageStatus ?? 'Checking…'}</Fact>
+        </dl>
+      ) : (
+        <p className="my-4 rounded-md bg-[#faf4e8] px-3 py-2.5 text-[12px] text-[#7c622e]">
+          Usage is unavailable until the first successful scan completes. Publication sizes still come from their accepted manifests.
+        </p>
+      )}
+      {observation && observation.mutationLock !== 'none' && (
+        <p className="rounded-md bg-[#faf4e8] px-3 py-2.5 text-[12px] text-[#7c622e]">
+          Storage mutations are locked until every finding is classified. Observations never change accepted content.
+        </p>
+      )}
+      <p className="mt-4 text-[11px] text-muted">Page Hub {version}</p>
+    </Dialog>
   )
 }
 
 export function App() {
   const queryClient = useQueryClient()
+  const [storageOpen, setStorageOpen] = useState(false)
   const status = useQuery({
     queryKey: ['manager-status'],
     queryFn: getManagerStatus,
@@ -154,63 +92,94 @@ export function App() {
   }, [])
 
   const storageStatus = status.data?.storage.status
-  const projects = inventory.data?.projects ?? []
   const observation = inventory.data?.observation ?? undefined
-  const refreshState: RefreshState = inventory.data?.refresh ?? { running: false, lastOutcome: 'never' }
+  const refreshing = refresh.isPending || (inventory.data?.refresh.running ?? false)
+  const version = status.data?.version ?? '—'
+  const lastScan = refreshing
+    ? 'Checking storage…'
+    : observation
+      ? `${observation.stale ? 'Last checked' : 'Checked'} ${formatShortDateTime(observation.observedAt)}`
+      : 'Not checked yet'
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 sm:px-8 sm:py-12">
-        <header className="flex flex-col gap-2">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Private manager</p>
-          <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Page Hub</h1>
-          <p className="max-w-2xl text-base leading-7 text-slate-600">
-            Manage Publications while the independent public reader keeps serving their canonical URLs.
+    <div className="min-h-screen bg-paper text-ink">
+      <header className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-line bg-white px-4 py-3 sm:px-8">
+        <a href="/" className="flex flex-none items-center gap-2.5 text-[17px] font-bold tracking-tight">
+          <span aria-hidden="true" className="grid h-[33px] w-[31px] place-items-center rounded-[9px] bg-moss font-serif text-[23px] text-white">
+            P
+          </span>
+          Page Hub
+        </a>
+        <span className="flex items-center gap-1.5 border-l border-line pl-5 text-[11px] text-muted max-md:ml-auto max-md:border-l-0 max-md:pl-0">
+          <LockIcon className="h-3.5 w-3.5" />
+          Private manager
+        </span>
+        <div className="ml-auto flex items-center gap-4 text-[12px]">
+          <button
+            type="button"
+            onClick={() => setStorageOpen(true)}
+            aria-label="View exact storage usage and status"
+            title="View exact storage usage and status"
+            className="inline-flex items-center gap-2 whitespace-nowrap"
+          >
+            <span
+              aria-hidden="true"
+              className={`h-1.5 w-1.5 rounded-full ${
+                storageStatus === 'unavailable' || storageStatus === 'misconfigured'
+                  ? 'bg-[#a57324] shadow-[0_0_0_3px_#fff4dd]'
+                  : 'bg-[#438361] shadow-[0_0_0_3px_#eaf3ec]'
+              }`}
+            />
+            {observation ? (
+              <span>
+                <strong className="font-semibold">{formatBytes(observation.usage.totalBytes)}</strong>
+                <span className="text-muted"> / {formatBytes(observation.usage.quotaBytes)} used</span>
+              </span>
+            ) : (
+              <span className="text-muted">Usage not available</span>
+            )}
+            <InfoIcon className="h-3.5 w-3.5 text-muted" />
+          </button>
+          <span className={`whitespace-nowrap text-[11px] ${observation?.stale && !refreshing ? 'text-[#865f25]' : 'text-muted'}`}>
+            {lastScan}
+          </span>
+          <button
+            type="button"
+            onClick={() => refresh.mutate()}
+            disabled={refreshing}
+            aria-label="Refresh storage observation"
+            title="Refresh storage observation"
+            className="inline-grid h-[30px] w-[30px] flex-none place-items-center rounded-md border border-line bg-white text-[#68786c] hover:border-[#a5b7a9] hover:bg-[#edf5ef] hover:text-moss disabled:cursor-wait disabled:opacity-60"
+          >
+            <RefreshIcon className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+      </header>
+
+      <main className="mx-auto w-full max-w-[1440px] px-4 pb-28 pt-8 sm:px-6 lg:px-10">
+        {inventory.isPending ? (
+          <p role="status" className="text-[13px] text-muted">
+            Loading inventory…
           </p>
-        </header>
-
-        <RefreshControls
-          refresh={refreshState}
-          onRefresh={() => refresh.mutate()}
-          pending={refresh.isPending}
-        />
-
-        {inventory.isPending && (
-          <Card>
-            <CardContent className="py-6 text-sm text-slate-500">Loading inventory…</CardContent>
-          </Card>
+        ) : inventory.isError ? (
+          <p role="alert" className="text-[13px] text-[#93641d]">
+            Inventory is unavailable.
+          </p>
+        ) : (
+          <Inventory
+            projects={inventory.data.projects}
+            observation={observation}
+            refresh={inventory.data.refresh}
+            refreshPending={refresh.isPending}
+            version={version}
+            onOpenStorage={() => setStorageOpen(true)}
+          />
         )}
-        {inventory.isError && (
-          <Card>
-            <CardContent className="py-6 text-sm text-amber-700">Inventory is unavailable.</CardContent>
-          </Card>
-        )}
-        {!inventory.isPending && !inventory.isError && (
-          <Inventory projects={projects} observation={observation} />
-        )}
+      </main>
 
-        {observation
-          ? <UsageCard observation={observation} />
-          : !inventory.isPending && !inventory.isError && <UnavailableUsageCard />}
-
-        <Card>
-          <CardHeader>
-            <h2 className="text-lg font-semibold">Runtime status</h2>
-            <p className="mt-1 text-sm text-slate-500">A read-only check confirms that Page Hub can reach its configured bucket.</p>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-medium text-slate-500">S3-compatible storage</p>
-              {status.isPending && <p className="mt-1 text-lg">Checking…</p>}
-              {status.isError && <p className="mt-1 text-lg text-amber-700">Status unavailable</p>}
-              {storageStatus && (
-                <Badge className={`mt-2 ${statusStyles[storageStatus]}`}>{storageStatus}</Badge>
-              )}
-            </div>
-            <p className="text-sm text-slate-500">Version {status.data?.version ?? '—'}</p>
-          </CardContent>
-        </Card>
-      </div>
-    </main>
+      {storageOpen && (
+        <StorageDetails observation={observation} storageStatus={storageStatus} version={version} onClose={() => setStorageOpen(false)} />
+      )}
+    </div>
   )
 }
